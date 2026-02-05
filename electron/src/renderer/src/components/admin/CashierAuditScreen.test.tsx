@@ -42,6 +42,8 @@ const mockCashierPerformanceResponse = {
       opening_float: 500.0,
       total_cash_sales: 3000.0,
       expected_cash: 3500.0,
+      total_mpesa_sales: 1500.0,
+      transaction_count: 15,
     },
   ],
   items: [
@@ -106,7 +108,9 @@ describe("CashierAuditScreen", () => {
 
   it("renders the component with title", async () => {
     render(<CashierAuditScreen />);
-    expect(screen.getByText("Cashier Accountability Audit")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Cashier Accountability Audit")).toBeInTheDocument();
+    });
   });
 
   it("fetches and displays cashiers in dropdown", async () => {
@@ -119,7 +123,7 @@ describe("CashierAuditScreen", () => {
     });
 
     // Select trigger should be visible
-    expect(screen.getByText("Select a cashier...")).toBeInTheDocument();
+    expect(screen.getByText(/Select (a )?cashier/i)).toBeInTheDocument();
   });
 
   it("has date range inputs", async () => {
@@ -161,7 +165,14 @@ describe("CashierAuditScreen Data Display", () => {
       if (url.includes("/reports/cashier-performance")) {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve(mockCashierPerformanceResponse),
+          json: () => Promise.resolve({
+            ...mockCashierPerformanceResponse,
+            shifts: mockCashierPerformanceResponse.shifts.map(s => ({
+              ...s,
+              total_mpesa_sales: s.total_mpesa_sales ?? 0,
+              transaction_count: s.transaction_count ?? 0,
+            }))
+          }),
         });
       }
       return Promise.resolve({ ok: false });

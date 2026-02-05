@@ -12,9 +12,4 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
   },
-  test: {
-    globals: true,
-    environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
-  },
 });

@@ -83,15 +83,19 @@ describe("DetailedReportsScreen", () => {
   it("renders the component with title", async () => {
     render(<DetailedReportsScreen />);
 
-    expect(screen.getByText("Detailed Sales Report")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Detailed Sales Report")).toBeInTheDocument();
+    });
     expect(screen.getByText(/Itemized breakdown/)).toBeInTheDocument();
   });
 
   it("displays period toggle buttons", async () => {
     render(<DetailedReportsScreen />);
 
-    expect(screen.getByText("Daily")).toBeInTheDocument();
-    expect(screen.getByText("Monthly")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Daily")).toBeInTheDocument();
+      expect(screen.getByText("Monthly")).toBeInTheDocument();
+    });
   });
 
   it("fetches and displays summary data", async () => {

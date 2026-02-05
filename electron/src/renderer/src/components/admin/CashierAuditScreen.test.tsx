@@ -106,7 +106,7 @@ describe("CashierAuditScreen", () => {
 
   it("renders the component with title", async () => {
     render(<CashierAuditScreen />);
-    expect(screen.getByText("Cashier Audit")).toBeInTheDocument();
+    expect(screen.getByText("Cashier Accountability Audit")).toBeInTheDocument();
   });
 
   it("fetches and displays cashiers in dropdown", async () => {
@@ -119,7 +119,7 @@ describe("CashierAuditScreen", () => {
     });
 
     // Select trigger should be visible
-    expect(screen.getByText("Select a cashier")).toBeInTheDocument();
+    expect(screen.getByText("Select a cashier...")).toBeInTheDocument();
   });
 
   it("has date range inputs", async () => {
@@ -194,7 +194,7 @@ describe("CashierAuditScreen Data Display", () => {
     await waitFor(
       () => {
         // Check for shift summary section
-        expect(screen.getByText("Shift Summary")).toBeInTheDocument();
+        expect(screen.getByText(/Shift Summaries/)).toBeInTheDocument();
       },
       { timeout: 3000 }
     );
@@ -206,7 +206,7 @@ describe("CashierAuditScreen Data Display", () => {
     await waitFor(
       () => {
         // Check for items table
-        expect(screen.getByText("Itemized Sales")).toBeInTheDocument();
+        expect(screen.getByText(/Accountability View/)).toBeInTheDocument();
       },
       { timeout: 3000 }
     );
@@ -234,7 +234,7 @@ describe("CashierAuditScreen Error Handling", () => {
 
     // Should still render without crashing
     await waitFor(() => {
-      expect(screen.getByText("Cashier Audit")).toBeInTheDocument();
+      expect(screen.getByText("Cashier Accountability Audit")).toBeInTheDocument();
     });
   });
 
@@ -247,7 +247,7 @@ describe("CashierAuditScreen Error Handling", () => {
 
     // Should still render without crashing
     await waitFor(() => {
-      expect(screen.getByText("Cashier Audit")).toBeInTheDocument();
+      expect(screen.getByText("Cashier Accountability Audit")).toBeInTheDocument();
     });
   });
 });

@@ -50,36 +50,36 @@
     --surface-2: #ffffff;
   }
 
-  /* Dark Mode: deep blue-gray/slate palette, vibrant emerald accents (reference screenshots) */
+  /* Premium Dark Mode: Microsoft/Google inspired neutral obsidian palette */
   .dark {
-    /* Base: deep dark blue-gray (slate-800) */
-    --background: #1e293b;
-    /* Primary text: light gray / off-white */
-    --foreground: #f1f5f9;
-    /* Cards/panels: slightly lighter slate (slate-700) - elevated look */
-    --card: #334155;
-    --card-foreground: #f1f5f9;
-    /* Primary actions: vibrant emerald green */
-    --primary: #16a34a;
+    /* Base: pure neutral dark (Google/Microsoft style) */
+    --background: #0f1115;
+    /* Primary text: clear white with slight dimming for readablity */
+    --foreground: #eef2f6;
+    /* Cards/panels: elevated neutral dark grey */
+    --card: #1a1d23;
+    --card-foreground: #eef2f6;
+    /* Primary actions: professional Emerald green, slightly desaturated for premium look */
+    --primary: #10b981;
     --primary-foreground: #ffffff;
-    --secondary: #334155;
-    --secondary-foreground: #f1f5f9;
-    --muted: #334155;
+    --secondary: #272c35;
+    --secondary-foreground: #eef2f6;
+    --muted: #272c35;
     --muted-foreground: #94a3b8;
-    --accent: #475569;
-    --destructive: #dc2626;
+    --accent: #334155;
+    --destructive: #ef4444;
     --destructive-foreground: #ffffff;
-    --border: #475569;
-    --input: #475569;
-    --input-background: #334155;
-    --ring: #64748b;
-    --surface-2: #334155;
-    --success-muted: rgba(34, 197, 94, 0.9);
-    /* Vibrant emerald green for Online, M-Pesa, primary buttons */
-    --safaricom-green: #16a34a;
-    --ocean-blue: #2563eb;
-    --tomato-red: #dc2626;
-    /* Return mode: red accent */
+    --border: #334155;
+    --input: #1e293b;
+    --input-background: #1a1d23;
+    --ring: #475569;
+    --surface-2: #272c35;
+    --success-muted: rgba(16, 185, 129, 0.2);
+    /* Brand accents */
+    --safaricom-green: #10b981;
+    --ocean-blue: #3b82f6;
+    --tomato-red: #ef4444;
+    /* Return mode: subtle deep red */
     --return-bg: #450a0a;
     --return-border: #7f1d1d;
   }

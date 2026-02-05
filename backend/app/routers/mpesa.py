@@ -116,7 +116,7 @@ async def mpesa_stk_callback(request: Request):
         receipt = _extract_mpesa_receipt_number(body) or ""
         tx_amount = 0.0
         tx_id = None
-        
+
         with Session(engine) as session:
             tx = session.exec(
                 select(Transaction).where(Transaction.checkout_request_id == checkout_id)
@@ -128,7 +128,7 @@ async def mpesa_stk_callback(request: Request):
                 tx_id = tx.id
                 session.add(tx)
                 session.commit()
-        
+
         # Broadcast payment received to all connected POS terminals
         if tx_id:
             event = create_event(
@@ -153,7 +153,7 @@ async def mpesa_stk_callback(request: Request):
             }
         )
         await manager.broadcast(event)
-    
+
     return {"ResultCode": 0, "ResultDesc": "Success"}
 
 
@@ -196,7 +196,7 @@ async def mpesa_c2b_confirmation(request: Request):
     if not parsed:
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
     trans_id, trans_amount = parsed
-    
+
     # Extract customer info from C2B body
     customer_phone = body.get("MSISDN", "")
     customer_name = " ".join(filter(None, [
@@ -204,11 +204,11 @@ async def mpesa_c2b_confirmation(request: Request):
         body.get("MiddleName", ""),
         body.get("LastName", ""),
     ])).strip()
-    
+
     # Match PENDING MPESA transaction: same amount (tolerance 0.01), created in last 15 minutes
     cutoff = datetime.utcnow() - timedelta(minutes=15)
     matched_tx_id = None
-    
+
     with Session(engine) as session:
         candidates = list(
             session.exec(
@@ -230,7 +230,7 @@ async def mpesa_c2b_confirmation(request: Request):
             session.add(tx)
             session.commit()
             break
-    
+
     # Broadcast C2B payment received to all connected POS terminals
     event = create_event(
         EventType.MPESA_PAYMENT_RECEIVED,
@@ -244,7 +244,7 @@ async def mpesa_c2b_confirmation(request: Request):
         }
     )
     await manager.broadcast(event)
-    
+
     return {"ResultCode": 0, "ResultDesc": "Success"}
 
 
@@ -279,16 +279,16 @@ def register_c2b_urls(data: C2BRegisterRequest):
         token = get_access_token()
     except ValueError as e:
         raise HTTPException(status_code=503, detail="M-Pesa not configured") from e
-    
+
     shortcode = config("DARAJA_SHORTCODE", default="174379")
-    
+
     payload = {
         "ShortCode": shortcode,
         "ResponseType": data.response_type,
         "ConfirmationURL": data.confirmation_url,
         "ValidationURL": data.validation_url,
     }
-    
+
     url = f"{DARAJA_BASE}/mpesa/c2b/v1/registerurl"
     body = json.dumps(payload).encode()
     req = UrlRequest(
@@ -319,14 +319,14 @@ async def mpesa_c2b_validation(request: Request):
     Daraja C2B Validation webhook (optional).
     Called before a C2B transaction is completed.
     Return {"ResultCode": 0} to accept, or {"ResultCode": 1} to reject.
-    
+
     For most POS use cases, we accept all payments by default.
     """
     try:
-        body = await request.json()
+        await request.json()
     except Exception:
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
-    
+
     # Accept all payments by default
     # You can add custom validation logic here (e.g., check bill reference, amount limits)
     return {"ResultCode": 0, "ResultDesc": "Accepted"}

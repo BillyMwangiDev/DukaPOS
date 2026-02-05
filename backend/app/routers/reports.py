@@ -184,7 +184,7 @@ def get_detailed_sales(
 ):
     """
     Detailed itemized sales report for a specific day or month.
-    
+
     Returns:
     - Summary: Total revenue, cash, M-Pesa, credit totals
     - Items: Flat list of every item sold with payment method and timestamp
@@ -205,7 +205,7 @@ def get_detailed_sales(
                 now = datetime.now(timezone.utc)
                 year = now.year
                 month = now.month
-            
+
             # Query transactions for the month
             txs = session.exec(
                 select(Transaction).where(
@@ -221,10 +221,10 @@ def get_detailed_sales(
                 selected_date = datetime.strptime(date[:10], "%Y-%m-%d")
             except (ValueError, IndexError):
                 selected_date = datetime.now(timezone.utc)
-            
+
             start_of_day = selected_date.replace(hour=0, minute=0, second=0, microsecond=0)
             end_of_day = selected_date.replace(hour=23, minute=59, second=59, microsecond=999999)
-            
+
             txs = session.exec(
                 select(Transaction).where(
                     Transaction.timestamp >= start_of_day,
@@ -233,14 +233,14 @@ def get_detailed_sales(
                 ).order_by(Transaction.timestamp)
             ).all()
             date_label = selected_date.strftime("%Y-%m-%d")
-        
+
         # Initialize counters
         total_cash = 0.0
         total_mpesa = 0.0
         total_credit = 0.0
         total_items_sold = 0
         items_list: list[SoldItemDetail] = []
-        
+
         # Process each transaction
         for tx in txs:
             # Accumulate payment method totals
@@ -250,19 +250,19 @@ def get_detailed_sales(
                 total_mpesa += tx.total_amount
             elif tx.payment_method.upper() == "CREDIT":
                 total_credit += tx.total_amount
-            
+
             # Get transaction items
             tx_items = session.exec(
                 select(TransactionItem).where(TransactionItem.transaction_id == tx.id)
             ).all()
-            
+
             for item in tx_items:
                 # Get product name
                 product = session.get(Product, item.product_id)
                 item_name = product.name if product else f"Product #{item.product_id}"
-                
+
                 total_items_sold += item.quantity
-                
+
                 items_list.append(SoldItemDetail(
                     timestamp=tx.timestamp.isoformat() + "Z" if tx.timestamp else "",
                     date=tx.timestamp.strftime("%Y-%m-%d") if tx.timestamp else "",
@@ -274,9 +274,9 @@ def get_detailed_sales(
                     payment_method=tx.payment_method.upper(),
                     transaction_id=tx.id or 0,
                 ))
-        
+
         total_revenue = total_cash + total_mpesa + total_credit
-        
+
         return DetailedSalesResponse(
             period=period,
             date=date_label,
@@ -300,17 +300,17 @@ def export_detailed_sales_csv(
     """Export detailed itemized sales report as CSV."""
     report = get_detailed_sales(period=period, date=date)
     buf = StringIO()
-    
+
     # Header with summary
     buf.write(f"# Detailed Sales Report - {report.period.title()}: {report.date}\n")
     buf.write(f"# Total Revenue: {report.summary.total_revenue}\n")
     buf.write(f"# Cash: {report.summary.total_cash}, M-Pesa: {report.summary.total_mpesa}, Credit: {report.summary.total_credit}\n")
     buf.write(f"# Total Items Sold: {report.summary.total_items_sold}, Transactions: {report.summary.transaction_count}\n")
     buf.write("\n")
-    
+
     # Column headers
     buf.write("Date,Time,Item Name,Quantity,Unit Price,Total Price,Payment Method,Transaction ID\n")
-    
+
     # Data rows
     for item in report.items:
         # Escape item name in case it contains commas
@@ -319,7 +319,7 @@ def export_detailed_sales_csv(
             f"{item.date},{item.time},{escaped_name},{item.quantity},"
             f"{item.unit_price},{item.total_price},{item.payment_method},{item.transaction_id}\n"
         )
-    
+
     filename = f"dukapos_detailed_sales_{report.period}_{report.date.replace('-', '_')}.csv"
     return PlainTextResponse(
         buf.getvalue(),
@@ -393,7 +393,7 @@ def get_cashier_performance(
 ):
     """
     Cashier accountability and performance report.
-    
+
     Returns:
     - Summary: Total sales, breakdown by payment method
     - Shifts: All shifts worked with expected vs actual cash
@@ -405,7 +405,7 @@ def get_cashier_performance(
         if not cashier:
             from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="Cashier not found")
-        
+
         # Parse dates
         try:
             start = datetime.strptime(start_date[:10], "%Y-%m-%d")
@@ -413,10 +413,10 @@ def get_cashier_performance(
         except (ValueError, IndexError):
             start = datetime.now(timezone.utc) - timedelta(days=7)
             end = datetime.now(timezone.utc)
-        
+
         start = start.replace(hour=0, minute=0, second=0, microsecond=0)
         end = end.replace(hour=23, minute=59, second=59, microsecond=999999)
-        
+
         # Get all transactions by this cashier in date range
         txs = session.exec(
             select(Transaction).where(
@@ -426,7 +426,7 @@ def get_cashier_performance(
                 Transaction.payment_status == "COMPLETED",
             ).order_by(Transaction.timestamp)
         ).all()
-        
+
         # Get shifts worked by this cashier
         shifts = session.exec(
             select(Shift).where(
@@ -435,24 +435,24 @@ def get_cashier_performance(
                 Shift.opened_at <= end,
             ).order_by(Shift.opened_at)
         ).all()
-        
+
         # Calculate totals
         total_cash = 0.0
         total_mpesa = 0.0
         total_credit = 0.0
         total_items_sold = 0
         items_list: list[CashierSaleItem] = []
-        
+
         # Track cash per shift for reconciliation
         shift_cash: dict[int, float] = {}
         shift_mpesa: dict[int, float] = {}
         shift_credit: dict[int, float] = {}
         shift_tx_count: dict[int, int] = {}
-        
+
         for tx in txs:
             amount = tx.total_amount
             shift_id = tx.shift_id or 0
-            
+
             if tx.payment_method.upper() == "CASH":
                 total_cash += amount
                 shift_cash[shift_id] = shift_cash.get(shift_id, 0) + amount
@@ -462,19 +462,19 @@ def get_cashier_performance(
             elif tx.payment_method.upper() == "CREDIT":
                 total_credit += amount
                 shift_credit[shift_id] = shift_credit.get(shift_id, 0) + amount
-            
+
             shift_tx_count[shift_id] = shift_tx_count.get(shift_id, 0) + 1
-            
+
             # Get items for this transaction
             tx_items = session.exec(
                 select(TransactionItem).where(TransactionItem.transaction_id == tx.id)
             ).all()
-            
+
             for item in tx_items:
                 product = session.get(Product, item.product_id)
                 item_name = product.name if product else f"Product #{item.product_id}"
                 total_items_sold += item.quantity
-                
+
                 items_list.append(CashierSaleItem(
                     timestamp=tx.timestamp.isoformat() + "Z" if tx.timestamp else "",
                     date=tx.timestamp.strftime("%Y-%m-%d") if tx.timestamp else "",
@@ -487,14 +487,14 @@ def get_cashier_performance(
                     payment_method=tx.payment_method.upper(),
                     transaction_id=tx.id or 0,
                 ))
-        
+
         # Build shift summaries
         shift_summaries: list[ShiftSummary] = []
         for shift in shifts:
             sid = shift.id or 0
             cash_sales = shift_cash.get(sid, 0)
             expected_cash = shift.opening_float + cash_sales
-            
+
             shift_summaries.append(ShiftSummary(
                 shift_id=sid,
                 opened_at=shift.opened_at.isoformat() + "Z" if shift.opened_at else "",
@@ -506,10 +506,10 @@ def get_cashier_performance(
                 total_credit_sales=round(shift_credit.get(sid, 0), 2),
                 transaction_count=shift_tx_count.get(sid, 0),
             ))
-        
+
         total_revenue = total_cash + total_mpesa + total_credit
         avg_transaction = total_revenue / len(txs) if txs else 0.0
-        
+
         return CashierPerformanceResponse(
             cashier_id=cashier_id,
             cashier_name=cashier.username,
@@ -545,7 +545,7 @@ def export_cashier_performance_csv(
         end_date=end_date,
     )
     buf = StringIO()
-    
+
     # Summary header
     buf.write(f"# Cashier Performance Report: {report.cashier_name}\n")
     buf.write(f"# Period: {report.start_date} to {report.end_date}\n")
@@ -553,7 +553,7 @@ def export_cashier_performance_csv(
     buf.write(f"# Cash: {report.summary.total_cash}, M-Pesa: {report.summary.total_mpesa}, Credit: {report.summary.total_credit}\n")
     buf.write(f"# Transactions: {report.summary.transaction_count}, Items Sold: {report.summary.total_items_sold}\n")
     buf.write("\n")
-    
+
     # Shift summary
     buf.write("# Shift Summaries\n")
     buf.write("Shift ID,Opened At,Closed At,Opening Float,Expected Cash,Cash Sales,M-Pesa Sales,Credit Sales,Transactions\n")
@@ -564,7 +564,7 @@ def export_cashier_performance_csv(
             f"{shift.total_mpesa_sales},{shift.total_credit_sales},{shift.transaction_count}\n"
         )
     buf.write("\n")
-    
+
     # Item details
     buf.write("# Itemized Sales\n")
     buf.write("Date,Time,Receipt,Item Name,Quantity,Unit Price,Total,Payment Method,Transaction ID\n")
@@ -574,7 +574,7 @@ def export_cashier_performance_csv(
             f"{item.date},{item.time},{item.receipt_number},{escaped_name},{item.quantity},"
             f"{item.unit_price},{item.total_price},{item.payment_method},{item.transaction_id}\n"
         )
-    
+
     filename = f"dukapos_cashier_{report.cashier_id}_{report.start_date}_{report.end_date}.csv"
     return PlainTextResponse(
         buf.getvalue(),

@@ -21,11 +21,11 @@ async def websocket_endpoint(
 ):
     """
     WebSocket connection endpoint.
-    
+
     Connect: ws://host:port/ws/{client_id}
-    
+
     The client_id should be unique per POS terminal (e.g., "pos-1", "terminal-abc").
-    
+
     Messages received from server:
     {
         "type": "mpesa.payment_received",
@@ -33,13 +33,13 @@ async def websocket_endpoint(
         "timestamp": "2026-01-31T12:00:00Z",
         "source": "server"
     }
-    
+
     Client can send:
     - {"type": "ping"} -> server responds with {"type": "pong"}
     - Any other message is echoed back for debugging
     """
     await manager.connect(websocket, client_id)
-    
+
     # Send welcome message
     await websocket.send_json(create_event(
         "connected",
@@ -49,14 +49,14 @@ async def websocket_endpoint(
             "total_clients": manager.get_connection_count(),
         }
     ))
-    
+
     try:
         while True:
             # Wait for messages from client
             data = await websocket.receive_json()
-            
+
             msg_type = data.get("type", "")
-            
+
             if msg_type == EventType.PING:
                 # Respond to ping with pong
                 await websocket.send_json(create_event(EventType.PONG, {"client_id": client_id}))
@@ -66,7 +66,7 @@ async def websocket_endpoint(
                     "echo",
                     {"received": data}
                 ))
-                
+
     except WebSocketDisconnect:
         await manager.disconnect(client_id)
     except Exception:

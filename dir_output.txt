@@ -1,0 +1,32 @@
+ Volume in drive C has no label.
+ Volume Serial Number is BC07-FB39
+
+ Directory of c:\Users\USER\Desktop\PROJECTS\DukaPOS
+
+02/05/2026  09:20 PM    <DIR>          .
+02/04/2026  05:40 AM    <DIR>          ..
+02/05/2026  08:40 PM               821 .env
+01/31/2026  07:52 PM    <DIR>          .github
+01/31/2026  11:39 AM               294 .gitignore
+02/05/2026  02:53 PM    <DIR>          .vscode
+02/05/2026  06:34 PM    <DIR>          backend
+02/05/2026  02:22 PM               772 cleanup_whitespace.py
+02/05/2026  06:52 AM               989 config.production.json
+02/05/2026  08:43 PM             2,966 customer_manual.md
+02/05/2026  08:44 PM             2,524 DATABASE_SCHEMA.md
+02/05/2026  09:20 PM                 0 dir_output.txt
+01/31/2026  11:36 PM    <DIR>          docs
+02/05/2026  08:55 AM                 0 dukapos.db
+02/05/2026  08:39 PM    <DIR>          electron
+02/05/2026  08:43 PM             3,031 installation.md
+01/31/2026  12:52 PM    <DIR>          node_modules
+02/05/2026  04:23 PM            11,431 package-lock.json
+02/05/2026  06:53 AM             1,309 package.json
+02/05/2026  08:43 PM             3,683 README.md
+02/05/2026  08:42 PM             1,082 run_all_tests.bat
+02/05/2026  12:18 PM    <DIR>          scripts
+02/05/2026  08:38 PM             1,123 setup.bat
+02/05/2026  09:20 PM                 7 test2.txt
+02/01/2026  10:09 AM    <DIR>          testsprite_tests
+              15 File(s)         30,032 bytes
+              10 Dir(s)  70,261,006,336 bytes free

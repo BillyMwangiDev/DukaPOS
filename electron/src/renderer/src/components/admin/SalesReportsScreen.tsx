@@ -30,7 +30,7 @@ interface DailyRow {
 
 interface PaymentBreakdown {
   cash: number;
-  mpesa: number;
+  mobile: number;
   credit: number;
 }
 
@@ -39,7 +39,7 @@ interface SalesReport {
   by_payment_method: PaymentBreakdown;
 }
 
-const PAYMENT_COLORS = ["#2563eb", "#16a34a", "#f59e0b"]; // blue, green, amber
+const PAYMENT_COLORS = ["#2563eb", "#16a34a", "#f59e0b"]; // blue, emerald, amber
 
 function defaultStartEnd(): { start: string; end: string } {
   const end = new Date();
@@ -70,11 +70,11 @@ export function SalesReportsScreen() {
         by_day: Array.isArray(data?.by_day) ? data.by_day : [],
         by_payment_method: data?.by_payment_method && typeof data.by_payment_method === "object"
           ? {
-              cash: Number(data.by_payment_method.cash) || 0,
-              mpesa: Number(data.by_payment_method.mpesa) || 0,
-              credit: Number(data.by_payment_method.credit) || 0,
-            }
-          : { cash: 0, mpesa: 0, credit: 0 },
+            cash: Number(data.by_payment_method.cash) || 0,
+            mobile: Number(data.by_payment_method.mobile) || 0,
+            credit: Number(data.by_payment_method.credit) || 0,
+          }
+          : { cash: 0, mobile: 0, credit: 0 },
       };
       setReport(safe);
     } catch {
@@ -95,23 +95,24 @@ export function SalesReportsScreen() {
     else toast.error("Select start and end date");
   };
 
-  const handleExportCsv = async () => {
+  const handleExport = async (format: "csv" | "excel") => {
     const start = startDate || defaultStartEnd().start;
     const end = endDate || defaultStartEnd().end;
     setExporting(true);
     try {
+      const endpoint = format === "excel" ? "reports/export/excel" : "reports/export";
       const res = await fetch(
-        apiUrl(`reports/export?start_date=${encodeURIComponent(start)}&end_date=${encodeURIComponent(end)}`)
+        apiUrl(`${endpoint}?start_date=${encodeURIComponent(start)}&end_date=${encodeURIComponent(end)}`)
       );
       if (!res.ok) throw new Error("Export failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `dukapos_sales_${start}_${end}.csv`;
+      a.download = `dukapos_sales_${start}_${end}.${format === "excel" ? "xlsx" : "csv"}`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success("CSV downloaded");
+      toast.success(`${format.toUpperCase()} downloaded`);
     } catch {
       toast.error("Export failed");
     } finally {
@@ -121,14 +122,14 @@ export function SalesReportsScreen() {
 
   const pieData = report
     ? [
-        { name: "Cash", value: report.by_payment_method.cash, color: PAYMENT_COLORS[0] },
-        { name: "M-Pesa", value: report.by_payment_method.mpesa, color: PAYMENT_COLORS[1] },
-        { name: "Credit", value: report.by_payment_method.credit, color: PAYMENT_COLORS[2] },
-      ].filter((d) => d.value > 0)
+      { name: "Cash", value: report.by_payment_method.cash, color: PAYMENT_COLORS[0] },
+      { name: "Mobile", value: report.by_payment_method.mobile, color: PAYMENT_COLORS[1] },
+      { name: "Credit", value: report.by_payment_method.credit, color: PAYMENT_COLORS[2] },
+    ].filter((d) => d.value > 0)
     : [];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 animate-in">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Sales Reports</h1>
@@ -165,12 +166,19 @@ export function SalesReportsScreen() {
             <Calendar className="mr-2 size-4" />
             Apply
           </Button>
-          <Button size="sm" onClick={handleExportCsv} disabled={exporting || loading}>
-            <Download className="mr-2 size-4" />
-            {exporting ? "Exporting…" : "Export CSV"}
-          </Button>
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" onClick={() => handleExport("csv")} disabled={exporting || loading}>
+              <Download className="mr-2 size-4" />
+              CSV
+            </Button>
+            <Button size="sm" onClick={() => handleExport("excel")} disabled={exporting || loading}>
+              <Download className="mr-2 size-4" />
+              {exporting ? "..." : "Excel"}
+            </Button>
+          </div>
         </div>
       </div>
+
 
       {loading && (
         <p className="text-sm text-muted-foreground">Loading report…</p>
@@ -178,7 +186,7 @@ export function SalesReportsScreen() {
 
       {!loading && report && (
         <>
-          <Card>
+          <Card className="glass shadow-xl border-white/5">
             <CardHeader>
               <CardTitle>Revenue by Date</CardTitle>
               <p className="text-sm text-muted-foreground">
@@ -207,7 +215,7 @@ export function SalesReportsScreen() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="glass shadow-xl border-white/5">
             <CardHeader>
               <CardTitle>Payment Method Split</CardTitle>
               <p className="text-sm text-muted-foreground">

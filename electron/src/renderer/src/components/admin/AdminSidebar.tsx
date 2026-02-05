@@ -12,6 +12,7 @@ import {
   WifiOff,
   Receipt,
   UserCheck,
+  Terminal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -24,7 +25,7 @@ interface AdminSidebarProps {
   shopName: string;
   isOnline: boolean;
   /** Cashiers see only Dashboard, Sales, Inventory, Customers (all read-only). */
-  userRole?: "admin" | "cashier";
+  userRole?: "admin" | "cashier" | "developer";
 }
 
 const allMenuItems = [
@@ -37,6 +38,7 @@ const allMenuItems = [
   { id: "customers", label: "Customers (Credit)", icon: CreditCard },
   { id: "tax", label: "Tax & eTIMS", icon: FileText },
   { id: "settings", label: "Settings & Backups", icon: Settings },
+  { id: "developer", label: "Developer Tools", icon: Terminal },
 ];
 
 // Cashiers can view reports but not cashier audit (admin only for accountability)
@@ -56,9 +58,9 @@ export function AdminSidebar({
       ? allMenuItems.filter((item) => cashierMenuIds.includes(item.id))
       : allMenuItems;
   return (
-    <div
+    <aside
       className={cn(
-        "h-full bg-slate-800 dark:bg-background dark:border-border border-r border-slate-700 flex flex-col transition-all duration-300",
+        "h-full glass border-r flex flex-col transition-all duration-300 z-20",
         isCollapsed ? "w-16" : "w-64"
       )}
     >
@@ -120,6 +122,6 @@ export function AdminSidebar({
           })}
         </nav>
       </ScrollArea>
-    </div>
+    </aside>
   );
 }

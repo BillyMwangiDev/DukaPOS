@@ -1,6 +1,6 @@
 import logo from "@/assets/poslogo.png";
 import { useRef } from "react";
-import { Search, Wifi, Printer, User, Moon, Sun } from "lucide-react";
+import { Search, Wifi, Printer, User, Moon, Sun, Lock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
@@ -25,6 +25,8 @@ interface HeaderProps {
   currentUser?: LoggedInUser | null;
   onLogout?: () => void;
   onBarcodeSearch?: (barcode: string) => void;
+  stationId?: string;
+  onLock?: () => void;
 }
 
 export function Header({
@@ -39,6 +41,8 @@ export function Header({
   currentUser,
   onLogout,
   onBarcodeSearch,
+  stationId,
+  onLock,
 }: HeaderProps) {
   const defaultRef = useRef<HTMLInputElement>(null);
   const inputRef = searchInputRef ?? defaultRef;
@@ -63,7 +67,7 @@ export function Header({
   return (
     <header
       className={cn(
-        "h-16 border-b bg-card px-6 flex items-center justify-between gap-4 shrink-0",
+        "h-16 border-b glass px-6 flex items-center justify-between gap-4 shrink-0 z-20",
         returnMode && "dark:bg-return-bg/80 dark:border-return-border border-red-800"
       )}
     >
@@ -75,6 +79,11 @@ export function Header({
         <span className="font-bold text-xl truncate max-w-[200px]" title={shopName || "DukaPOS"}>
           {shopName?.trim() || "DukaPOS"}
         </span>
+        {stationId && (
+          <span className="bg-muted px-2 py-0.5 rounded text-[10px] font-mono font-bold text-muted-foreground border">
+            {stationId}
+          </span>
+        )}
       </div>
 
       {/* Search Bar & Manual Input - center */}
@@ -125,6 +134,11 @@ export function Header({
         <Button variant="ghost" size="icon" onClick={onToggleDarkMode} className="rounded-md">
           {darkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
         </Button>
+        {onLock && (
+          <Button variant="ghost" size="icon" onClick={onLock} className="rounded-md" title="Lock Terminal">
+            <Lock className="size-5 text-muted-foreground" />
+          </Button>
+        )}
         {currentUser && (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground truncate max-w-[120px]" title={currentUser.username}>

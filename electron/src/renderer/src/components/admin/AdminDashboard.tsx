@@ -3,18 +3,19 @@ import { AdminSidebar } from "./AdminSidebar";
 import { DashboardScreen, type LowStockProduct } from "./DashboardScreen";
 import { InventoryManagerScreen } from "./InventoryManagerScreen";
 import { TaxEtimsScreen } from "./TaxEtimsScreen";
-import { UserManagementScreen } from "./UserManagementScreen";
+import { StaffManagementScreen } from "./UserManagementScreen";
 import { CustomerManagementScreen } from "./CustomerManagementScreen";
 import { SalesReportsScreen } from "./SalesReportsScreen";
 import { DetailedReportsScreen } from "./DetailedReportsScreen";
 import { CashierAuditScreen } from "./CashierAuditScreen";
+import { DeveloperConsole } from "./DeveloperConsole";
 import { apiUrl } from "@/lib/api";
 import { SettingsView } from "@/components/SettingsView";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 interface AdminDashboardProps {
   /** Cashiers get read-only access to Dashboard, Sales, Inventory, Customers only. */
-  userRole?: "admin" | "cashier";
+  userRole?: "admin" | "cashier" | "developer";
   isOnline: boolean;
   shopName?: string;
   onGenerateZReport: () => void;
@@ -108,7 +109,7 @@ export function AdminDashboard({
   }, []);
 
   return (
-    <div className="flex h-full bg-background">
+    <div className="flex h-full bg-background overflow-hidden animate-in">
       <AdminSidebar
         currentSection={currentSection}
         onSectionChange={setCurrentSection}
@@ -119,7 +120,7 @@ export function AdminDashboard({
         userRole={userRole}
       />
 
-      <div className="flex-1 overflow-y-auto pl-6 pr-4">
+      <div className="flex-1 overflow-y-auto pl-6 pr-4 no-scrollbar">
         {currentSection === "dashboard" && (
           <ErrorBoundary>
             <DashboardScreen
@@ -153,7 +154,7 @@ export function AdminDashboard({
         )}
         {!isCashier && currentSection === "users" && (
           <ErrorBoundary>
-            <UserManagementScreen />
+            <StaffManagementScreen />
           </ErrorBoundary>
         )}
         {currentSection === "customers" && (
@@ -176,6 +177,11 @@ export function AdminDashboard({
               />
             </ErrorBoundary>
           </div>
+        )}
+        {currentSection === "developer" && (userRole === "developer" || userRole === "admin") && (
+          <ErrorBoundary>
+            <DeveloperConsole />
+          </ErrorBoundary>
         )}
       </div>
     </div>

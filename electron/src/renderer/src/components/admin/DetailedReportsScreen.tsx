@@ -44,7 +44,7 @@ interface SoldItemDetail {
 interface DetailedSalesSummary {
   total_revenue: number;
   total_cash: number;
-  total_mpesa: number;
+  total_mobile: number;
   total_credit: number;
   total_items_sold: number;
   transaction_count: number;
@@ -184,23 +184,23 @@ export function DetailedReportsScreen() {
     const m = method.toUpperCase();
     if (m === "CASH") {
       return (
-        <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 gap-1">
+        <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 gap-1 border-none">
           <Banknote className="size-3" />
           Cash
         </Badge>
       );
     }
-    if (m === "MPESA") {
+    if (m === "MOBILE" || m === "MPESA") {
       return (
-        <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 gap-1">
+        <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 gap-1 border-none">
           <Smartphone className="size-3" />
-          M-Pesa
+          Mobile
         </Badge>
       );
     }
     if (m === "CREDIT") {
       return (
-        <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 gap-1">
+        <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 gap-1 border-none">
           <CreditCard className="size-3" />
           Credit
         </Badge>
@@ -208,6 +208,7 @@ export function DetailedReportsScreen() {
     }
     return <Badge variant="outline">{method}</Badge>;
   };
+
 
   const SortableHeader = ({
     field,
@@ -230,7 +231,7 @@ export function DetailedReportsScreen() {
   );
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 animate-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -250,7 +251,7 @@ export function DetailedReportsScreen() {
       </div>
 
       {/* Controls: Period Toggle + Date Picker */}
-      <Card>
+      <Card className="glass shadow-xl border-white/5">
         <CardContent className="pt-6">
           <div className="flex flex-wrap items-end gap-4">
             {/* Period Toggle */}
@@ -259,22 +260,20 @@ export function DetailedReportsScreen() {
               <div className="flex rounded-lg border overflow-hidden">
                 <button
                   type="button"
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${
-                    period === "daily"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted hover:bg-muted/80"
-                  }`}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${period === "daily"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted hover:bg-muted/80"
+                    }`}
                   onClick={() => setPeriod("daily")}
                 >
                   Daily
                 </button>
                 <button
                   type="button"
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${
-                    period === "monthly"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted hover:bg-muted/80"
-                  }`}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${period === "monthly"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted hover:bg-muted/80"
+                    }`}
                   onClick={() => setPeriod("monthly")}
                 >
                   Monthly
@@ -316,7 +315,7 @@ export function DetailedReportsScreen() {
       {/* Summary Cards */}
       {report?.summary && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
+          <Card className="glass shadow-xl border-white/5">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
               <DollarSign className="size-4 text-muted-foreground" />
@@ -331,7 +330,7 @@ export function DetailedReportsScreen() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="glass shadow-xl border-white/5">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-1">
                 <Banknote className="size-4 text-blue-500" />
@@ -345,21 +344,21 @@ export function DetailedReportsScreen() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="glass shadow-xl border-white/5">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-1">
                 <Smartphone className="size-4 text-emerald-500" />
-                M-Pesa Total
+                Mobile Total
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
-                {formatKsh(report.summary.total_mpesa)}
+                {formatKsh(report.summary.total_mobile)}
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="glass shadow-xl border-white/5">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-1">
                 <Package className="size-4 text-muted-foreground" />

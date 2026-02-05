@@ -48,6 +48,11 @@
     --ocean-blue: #2563EB;
     --tomato-red: #E11D48;
     --surface-2: #ffffff;
+
+    /* Glassmorphism tokens */
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.3);
+    --glass-blur: 12px;
   }
 
   /* Premium Dark Mode: Microsoft/Google inspired neutral obsidian palette */
@@ -69,10 +74,12 @@
     --accent: #334155;
     --destructive: #ef4444;
     --destructive-foreground: #ffffff;
-    --border: #334155;
+    --border: rgba(255, 255, 255, 0.08);
+    /* Transparent subtle border */
     --input: #1e293b;
-    --input-background: #1a1d23;
-    --ring: #475569;
+    --input-background: #151921;
+    --ring: rgba(16, 185, 129, 0.3);
+    /* Subtle emerald ring */
     --surface-2: #272c35;
     --success-muted: rgba(16, 185, 129, 0.2);
     /* Brand accents */
@@ -82,6 +89,10 @@
     /* Return mode: subtle deep red */
     --return-bg: #450a0a;
     --return-border: #7f1d1d;
+
+    /* Dark Glass */
+    --glass-bg: rgba(15, 17, 21, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.05);
   }
 }
 
@@ -254,4 +265,59 @@ input:not([type="hidden"]),
 .dark [data-empty-state],
 .dark .empty-state {
   opacity: 0.6;
+}
+
+/* Premium Animations & Utilities */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+}
+
+.animate-in {
+  animation: fade-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pos-gradient-border {
+  position: relative;
+  background: var(--card);
+}
+
+.pos-gradient-border::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--safaricom-green), transparent);
+  opacity: 0.5;
+}
+
+/* Zero-Scroll Layout Polish */
+.pos-body>* {
+  height: 100%;
+}
+
+/* Ensure no scrollbars on standard containers */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

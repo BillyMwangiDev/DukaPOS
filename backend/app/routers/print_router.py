@@ -21,9 +21,14 @@ class ReceiptItem(BaseModel):
 class ReceiptPayload(BaseModel):
     """Accept empty body (API/test compatibility): defaults to no lines, zero total."""
     shop_name: str = "DukaPOS"
+    station_id: str = "POS-01"
     items: List[ReceiptItem] = Field(default_factory=list)
     total_gross: float = 0.0
     payment_method: str = "CASH"
+    payment_subtype: Optional[str] = None
+    kra_pin: Optional[str] = None
+    contact_phone: Optional[str] = None
+    payments: Optional[List[dict]] = None # [{method: string, amount: number, details: {...}}]
 
 
 class KickDrawerResponse(BaseModel):
@@ -32,13 +37,28 @@ class KickDrawerResponse(BaseModel):
     warning: Optional[str] = None
 
 
-def _do_print_receipt(shop_name: str, items: list, total_gross: float, payment_method: str) -> None:
+def _do_print_receipt(
+    shop_name: str, 
+    items: list, 
+    total_gross: float, 
+    payment_method: str, 
+    station_id: str = "POS-01",
+    payment_subtype: Optional[str] = None,
+    kra_pin: Optional[str] = None,
+    contact_phone: Optional[str] = None,
+    payments: Optional[List[dict]] = None
+) -> None:
     printer = get_printer()
     printer.print_receipt(
         shop_name=shop_name,
         items=items,
         total_gross=total_gross,
         payment_method=payment_method,
+        station_id=station_id,
+        payment_subtype=payment_subtype,
+        kra_pin=kra_pin,
+        contact_phone=contact_phone,
+        payments=payments
     )
 
 
@@ -57,6 +77,11 @@ def print_receipt(payload: Optional[ReceiptPayload] = Body(None)):
         items,
         req.total_gross,
         req.payment_method,
+        req.station_id,
+        req.payment_subtype,
+        req.kra_pin,
+        req.contact_phone,
+        req.payments
     )
     try:
         future.result(timeout=TIMEOUT_SEC)

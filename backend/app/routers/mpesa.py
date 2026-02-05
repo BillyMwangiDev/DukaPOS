@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.database import engine
-from app.models import Transaction
+from app.models import Receipt
 from app.mpesa_utils import send_stk_push, get_access_token, DARAJA_BASE
 from app.config import config
 from app.websocket_manager import manager, EventType, create_event
@@ -113,31 +113,31 @@ async def mpesa_stk_callback(request: Request):
 
     checkout_id = _extract_checkout_request_id(body)
     if result_code == 0 and checkout_id:
-        receipt = _extract_mpesa_receipt_number(body) or ""
+        receipt_code = _extract_mpesa_receipt_number(body) or ""
         tx_amount = 0.0
-        tx_id = None
+        db_id = None
 
         with Session(engine) as session:
-            tx = session.exec(
-                select(Transaction).where(Transaction.checkout_request_id == checkout_id)
+            r = session.exec(
+                select(Receipt).where(Receipt.checkout_request_id == checkout_id)
             ).first()
-            if tx:
-                tx.payment_status = "COMPLETED"
-                tx.mpesa_code = receipt or tx.mpesa_code
-                tx_amount = tx.total_amount
-                tx_id = tx.id
-                session.add(tx)
+            if r:
+                r.payment_status = "COMPLETED"
+                r.reference_code = receipt_code or r.reference_code
+                tx_amount = r.total_amount
+                db_id = r.id
+                session.add(r)
                 session.commit()
 
         # Broadcast payment received to all connected POS terminals
-        if tx_id:
+        if db_id:
             event = create_event(
                 EventType.MPESA_STK_CALLBACK,
                 {
                     "status": "success",
                     "checkout_request_id": checkout_id,
-                    "mpesa_receipt": receipt,
-                    "transaction_id": tx_id,
+                    "mpesa_receipt": receipt_code,
+                    "receipt_id": db_id,
                     "amount": tx_amount,
                 }
             )
@@ -207,27 +207,27 @@ async def mpesa_c2b_confirmation(request: Request):
 
     # Match PENDING MPESA transaction: same amount (tolerance 0.01), created in last 15 minutes
     cutoff = datetime.utcnow() - timedelta(minutes=15)
-    matched_tx_id = None
+    matched_id = None
 
     with Session(engine) as session:
         candidates = list(
             session.exec(
-                select(Transaction)
-                .where(Transaction.payment_method == "MPESA")
-                .where(Transaction.payment_status == "PENDING")
-                .where(Transaction.total_amount >= trans_amount - 0.01)
-                .where(Transaction.total_amount <= trans_amount + 0.01)
-                .where(Transaction.timestamp >= cutoff)
-                .order_by(Transaction.timestamp.desc())
+                select(Receipt)
+                .where(Receipt.payment_type == "MOBILE")
+                .where(Receipt.payment_status == "PENDING")
+                .where(Receipt.total_amount >= trans_amount - 0.01)
+                .where(Receipt.total_amount <= trans_amount + 0.01)
+                .where(Receipt.timestamp >= cutoff)
+                .order_by(Receipt.timestamp.desc())
             )
         )
-        for tx in candidates:
-            if tx.mpesa_code:
+        for r in candidates:
+            if r.reference_code:
                 continue
-            tx.payment_status = "COMPLETED"
-            tx.mpesa_code = trans_id
-            matched_tx_id = tx.id
-            session.add(tx)
+            r.payment_status = "COMPLETED"
+            r.reference_code = trans_id
+            matched_id = r.id
+            session.add(r)
             session.commit()
             break
 
@@ -239,7 +239,7 @@ async def mpesa_c2b_confirmation(request: Request):
             "amount": trans_amount,
             "phone": customer_phone,
             "customer_name": customer_name,
-            "matched_transaction_id": matched_tx_id,
+            "matched_receipt_id": matched_id,
             "source": "c2b",
         }
     )

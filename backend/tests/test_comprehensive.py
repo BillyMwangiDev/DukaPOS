@@ -111,6 +111,25 @@ def test_product_lifecycle():
     assert resp.status_code == 404
 
 
+def test_add_product_inventory_enterprise():
+    """TC011: Create inventory item with enterprise fields (buying price, alerts)."""
+    barcode = f"INV{int(time.time())}"
+    payload = {
+        "name": "Enterprise Widget",
+        "barcode": barcode,
+        "price_buying": 100.0,
+        "price_selling": 150.0,
+        "stock_quantity": 50,
+        "min_stock_alert": 10
+    }
+    resp = client.post("/products", json=payload)
+    assert resp.status_code in [200, 201]
+    data = resp.json()
+    assert data["price_buying"] == 100.0
+    assert data["min_stock_alert"] == 10
+    client.delete(f"/products/{data['id']}")
+
+
 # ============================================================================
 # TC003: Get Product by Barcode
 # ============================================================================
@@ -380,8 +399,17 @@ def test_detailed_sales_returns_correct_structure():
     summary = data["summary"]
     assert "total_revenue" in summary
     assert "total_cash" in summary
-    assert "total_mpesa" in summary
+    assert "total_mobile" in summary or "total_mpesa" in summary
     assert "transaction_count" in summary
+
+
+def test_detailed_sales_export_csv():
+    """TC012: Verify detailed sales CSV export."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    response = client.get(f"/reports/detailed-sales/export?period=daily&date={today}")
+    assert response.status_code == 200
+    assert "text/csv" in response.headers.get("content-type", "").lower()
+    assert "Item Name" in response.text
 
 
 # ============================================================================
@@ -398,6 +426,31 @@ def test_list_cashiers():
     if len(cashiers) > 0:
         assert "id" in cashiers[0]
         assert "username" in cashiers[0]
+
+
+def test_cashier_performance_report():
+    """TC013: Verify cashier performance report and export."""
+    # Get active staff
+    resp = client.get("/reports/staff-list")
+    assert resp.status_code == 200
+    staff = resp.json()
+    if not staff:
+        pytest.skip("No staff members found")
+    
+    staff_id = staff[0]["id"]
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    # Check report
+    resp = client.get(f"/reports/staff-performance?staff_id={staff_id}&start_date={today}&end_date={today}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "summary" in data
+    assert data["staff_id"] == staff_id
+
+    # Check export
+    resp = client.get(f"/reports/staff-performance/export?staff_id={staff_id}&start_date={today}&end_date={today}")
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers.get("content-type", "")
 
 
 if __name__ == "__main__":

@@ -52,6 +52,7 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
   const [lowStockAlerts, setLowStockAlerts] = useState(true);
   const [autoBackup, setAutoBackup] = useState(true);
   const [shopName, setShopName] = useState("DukaPOS");
+  const [stationId, setStationId] = useState("POS-01");
   const [kraPin, setKraPin] = useState("");
   const [mpesaTill, setMpesaTill] = useState("");
   const [contactPhone, setContactPhone] = useState("");
@@ -87,6 +88,7 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
         const data = await res.json();
         if (data && typeof data === "object") {
           setShopName(typeof data.shop_name === "string" ? data.shop_name : "DukaPOS");
+          setStationId(typeof data.station_id === "string" ? data.station_id : "POS-01");
           setKraPin(typeof data.kra_pin === "string" ? data.kra_pin : "");
           setMpesaTill(typeof data.mpesa_till_number === "string" ? data.mpesa_till_number : "");
           setContactPhone(typeof data.contact_phone === "string" ? data.contact_phone : "");
@@ -128,6 +130,7 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           shop_name: shopName || "DukaPOS",
+          station_id: stationId || "POS-01",
           kra_pin: kraPin,
           mpesa_till_number: mpesaTill,
           contact_phone: contactPhone,
@@ -144,6 +147,7 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
       toast.error("Save failed", { description: String(e) });
     }
   };
+
 
   const handleManualBackup = async () => {
     setBackupLoading(true);
@@ -188,7 +192,7 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
       </div>
 
       {/* General Settings */}
-      <Card>
+      <Card className="glass shadow-lg border-white/5">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="size-5" />
@@ -288,41 +292,54 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
       </Card>
 
       {/* Shop Information */}
-      <Card>
+      <Card className="glass shadow-lg border-white/5">
         <CardHeader>
           <CardTitle>Shop Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <Label>Shop Name</Label>
-            <Input
-              value={shopName}
-              onChange={(e) => setShopName(e.target.value)}
-              className="mt-1 bg-muted/50"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Shop Name</Label>
+              <Input
+                value={shopName}
+                onChange={(e) => setShopName(e.target.value)}
+                className="mt-1 bg-muted/50"
+              />
+            </div>
+            <div>
+              <Label>Station ID (e.g. POS-01)</Label>
+              <Input
+                value={stationId}
+                onChange={(e) => setStationId(e.target.value)}
+                className="mt-1 bg-muted/50 font-mono"
+                placeholder="POS-01"
+              />
+            </div>
           </div>
-          <div>
-            <Label>KRA PIN</Label>
-            <Input
-              value={kraPin}
-              onChange={(e) => setKraPin(e.target.value)}
-              className="mt-1 bg-muted/50 font-mono"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>KRA PIN</Label>
+              <Input
+                value={kraPin}
+                onChange={(e) => setKraPin(e.target.value)}
+                className="mt-1 bg-muted/50 font-mono"
+              />
+            </div>
+            <div>
+              <Label>Contact Phone</Label>
+              <Input
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+                className="mt-1 bg-muted/50"
+              />
+            </div>
           </div>
           <div>
             <Label>M-Pesa Till Number</Label>
             <Input
               value={mpesaTill}
               onChange={(e) => setMpesaTill(e.target.value)}
-              className="mt-1 bg-muted/50 font-mono"
-            />
-          </div>
-          <div>
-            <Label>Contact Phone</Label>
-            <Input
-              value={contactPhone}
-              onChange={(e) => setContactPhone(e.target.value)}
-              className="mt-1 bg-muted/50"
+              className="mt-1 bg-muted/50 font-mono w-full md:w-1/2"
             />
           </div>
           <Button
@@ -336,7 +353,7 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
       </Card>
 
       {/* Automatic Backups */}
-      <Card>
+      <Card className="glass shadow-lg border-white/5">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Database className="size-5" />
@@ -390,7 +407,7 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
       </Card>
 
       {/* Backup History */}
-      <Card>
+      <Card className="glass shadow-lg border-white/5">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -461,7 +478,7 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
       </Card>
 
       {/* System Information */}
-      <Card>
+      <Card className="glass shadow-lg border-white/5">
         <CardHeader>
           <CardTitle>System Information</CardTitle>
         </CardHeader>

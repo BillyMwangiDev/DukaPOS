@@ -1,0 +1,6 @@
+
+[notice] A new release of pip is available: 25.3 -> 26.0.1
+[notice] To update, run: c:\Users\USER\Desktop\PROJECTS\DukaPOS\backend\.venv\Scripts\python.exe -m pip install --upgrade pip
+ERROR: Invalid requirement: '': Expected package name at the start of dependency specifier
+    
+    ^

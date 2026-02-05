@@ -41,26 +41,34 @@ DukaPOS follows a modern micro-services inspired architecture where the frontend
 
 | Layer | Technology |
 | :--- | :--- |
-| **Frontend** | React, Vite, Lucide Icons |
-| **Backend** | FastAPI, SQLModel, SQLAlchemy |
-| **Shell** | Electron (Windows Optimized) |
+| **Frontend** | React, Vite, Lucide Icons, Vitest, Playwright |
+| **Backend** | FastAPI, SQLModel, SQLAlchemy, Pytest |
+| **CI/CD** | GitHub Actions (Auto-Build, Security Audit) |
 | **Database** | SQLite (Offline First) |
-| **Connectivity** | Daraja API (M-Pesa), ESC/POS |
 
 ## Project Documentation
 
 Detailed technical and operational documentation:
 
 - **[Installation Guide](installation.md)**: Deployment, Hardware, and LAN setup.
+- **[Customer Manual](customer_manual.md)**: End-to-end user guide for cashiers and admins.
 - **[Database Schema](DATABASE_SCHEMA.md)**: Detailed ERD and data architecture.
 - **[System Maintenance](installation.md#database-maintenance)**: Factory resets and data wiping.
 
+## Production Readiness & CI/CD
+
+DukaPOS is protected by a multi-tiered automated pipeline:
+- **Dependency Pining**: Strict version lockdown for zero-error builds.
+- **Automated QA**: Every commit runs Pytest (Backend) and Playwright (E2E).
+- **Security Guard**: Automated `npm audit` and Python `safety` checks.
+- **Auto-Artifacts**: Windows Installers are generated automatically on successful merges to `main`.
+
 ## Deployment Status
 
-DukaPOS is built for the Windows ecosystem. The following build artifacts are available:
+DukaPOS is built for the Windows ecosystem. The following build artifacts are available via GitHub Actions:
 
-- **Installer**: `electron/dist/DukaPOS Setup.exe`
-- **Portable**: `electron/dist/win-unpacked/DukaPOS.exe`
+- **Installer**: `DukaPOS-Setup.exe` (NSIS Installer)
+- **Status**: Stable / Enterprise Ready
 
 ---
 

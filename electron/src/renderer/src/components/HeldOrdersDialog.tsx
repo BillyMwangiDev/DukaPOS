@@ -114,7 +114,7 @@ export function HeldOrdersDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md glass animate-in shadow-2xl border-white/10 no-scrollbar">
         <DialogHeader>
           <DialogTitle>Held orders</DialogTitle>
           <DialogDescription>

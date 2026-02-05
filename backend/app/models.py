@@ -6,11 +6,11 @@ from typing import Optional
 from sqlmodel import SQLModel, Field
 
 
-class User(SQLModel, table=True):
+class Staff(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    username: str
+    username: str = Field(index=True, unique=True)
     password_hash: str = ""  # bcrypt hash; required on create
-    role: str  # "admin" or "cashier"
+    role: str  # "admin", "cashier", "developer"
     pin_hash: str = ""  # bcrypt hash of 4-6 digit PIN
     is_active: bool = True
 
@@ -18,12 +18,12 @@ class User(SQLModel, table=True):
 class Product(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str
-    description: Optional[str] = None  # optional for TestSprite / API compatibility
+    description: Optional[str] = None
     barcode: str = Field(index=True, unique=True)
     price_buying: float = 0.0
     price_selling: float = 0.0  # VAT-inclusive (retail)
-    wholesale_price: Optional[float] = None  # VAT-inclusive; used when qty >= wholesale_threshold
-    wholesale_threshold: Optional[int] = None  # min qty for wholesale price
+    wholesale_price: Optional[float] = None  # VAT-inclusive
+    wholesale_threshold: Optional[int] = None
     tax_percentage: float = Field(default=16.0)
     stock_quantity: int = 0
     min_stock_alert: int = 5
@@ -33,69 +33,70 @@ class Shift(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     opened_at: datetime = Field(default_factory=datetime.utcnow)
     closed_at: Optional[datetime] = None
-    cashier_id: int = Field(foreign_key="user.id")
+    cashier_id: int = Field(foreign_key="staff.id")
     opening_float: float = 0.0
     closing_actual: Optional[float] = None
-    closing_expected: Optional[float] = None  # computed from transactions
+    closing_expected: Optional[float] = None
 
 
 class Customer(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: Optional[str] = None
     phone: Optional[str] = None
-    email: Optional[str] = None  # optional for API/test compatibility
-    address: Optional[str] = None  # optional for API/test compatibility
-    kra_pin: str = ""  # KRA PIN for eTIMS CSV (Customer_PIN)
-    current_balance: float = 0.0  # positive = owes shop
-    debt_limit: float = 0.0  # max allowed debt
+    email: Optional[str] = None
+    address: Optional[str] = None
+    kra_pin: str = ""
+    current_balance: float = 0.0
+    debt_limit: float = 0.0
 
 
 class InvoiceSequence(SQLModel, table=True):
-    """Single row: next invoice number for local Invoice_ID when eTIMS disabled."""
+    """Single row: next receipt number sequence."""
     id: int | None = Field(default=None, primary_key=True)
     last_number: int = 0
 
 
-class Transaction(SQLModel, table=True):
+class Receipt(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    receipt_id: str = Field(index=True, unique=True) # e.g. POS-01-0001
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     shift_id: Optional[int] = Field(default=None, foreign_key="shift.id")
-    cashier_id: int = Field(foreign_key="user.id")
-    customer_id: Optional[int] = Field(default=None, foreign_key="customer.id")  # for credit
-    payment_method: str  # "CASH", "MPESA", "CREDIT"
-    mpesa_code: Optional[str] = None
-    checkout_request_id: Optional[str] = None  # M-Pesa STK CheckoutRequestID for pending
-    payment_status: str = "COMPLETED"  # COMPLETED, PENDING, FAILED
-    invoice_number: Optional[str] = None  # local Invoice_ID sequence when eTIMS disabled
+    staff_id: int = Field(foreign_key="staff.id")
+    customer_id: Optional[int] = Field(default=None, foreign_key="customer.id")
     total_amount: float = 0.0
+    payment_type: str  # "CASH", "MOBILE", "CREDIT"
+    payment_subtype: Optional[str] = None # "M-Pesa", "Bank", "Equity"
+    reference_code: Optional[str] = None # Transaction message code
+    payment_details_json: Optional[str] = None # JSON string for split payments: [{"method":"CASH","amount":100}, ...]
     is_return: bool = False
+    origin_station: str = Field(default="POS-01") # Station ID for conflict resolution
+    payment_status: str = "COMPLETED" # COMPLETED, PENDING, FAILED
 
 
-class TransactionItem(SQLModel, table=True):
+class SaleItem(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    transaction_id: int = Field(foreign_key="transaction.id")
+    receipt_id: int = Field(foreign_key="receipt.id")
     product_id: int = Field(foreign_key="product.id")
-    cashier_id: int = Field(default=1, foreign_key="user.id")  # Tracks who sold/edited this item
+    staff_id: int = Field(default=1, foreign_key="staff.id")
     quantity: int
     price_at_moment: float
-    is_return: bool = False  # Track if this is a returned item
-    return_reason: Optional[str] = None  # Reason for return if applicable
+    is_return: bool = False
+    return_reason: Optional[str] = None
 
 
 class HeldOrder(SQLModel, table=True):
-    """Saved cart (hold order) per cashier. items_json: list of {productId,name,barcode,quantity,priceGross,priceWholesale,wholesaleThreshold}."""
     id: int | None = Field(default=None, primary_key=True)
-    cashier_id: int = Field(foreign_key="user.id")
-    items_json: str = "[]"  # JSON array of cart items
+    staff_id: int = Field(foreign_key="staff.id")
+    items_json: str = "[]"
     total_gross: float = 0.0
-    notes: str = ""  # optional notes for hold (API/test compatibility)
+    notes: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class StoreSettings(SQLModel, table=True):
-    """Single row: shop name, KRA PIN, M-Pesa Till, contact, general toggles. id=1."""
     id: int | None = Field(default=None, primary_key=True)
     shop_name: str = "DukaPOS"
+    station_id: str = "POS-01" # Default station ID
     kra_pin: str = ""
     mpesa_till_number: str = ""
     contact_phone: str = ""
@@ -103,3 +104,6 @@ class StoreSettings(SQLModel, table=True):
     low_stock_warning_enabled: bool = True
     sound_enabled: bool = True
     auto_backup_enabled: bool = True
+    staff_limit: int = 5
+    master_ip: str = "127.0.0.1"
+

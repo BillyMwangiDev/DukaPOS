@@ -23,33 +23,42 @@ import { apiUrl } from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
 
-interface UserRow {
+interface StaffRow {
   id: number;
   username: string;
   role: string;
   is_active: boolean;
 }
 
-export function UserManagementScreen() {
-  const [users, setUsers] = useState<UserRow[]>([]);
+export function StaffManagementScreen() {
+  const [users, setUsers] = useState<StaffRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+  const [editingUser, setEditingUser] = useState<StaffRow | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const [addForm, setAddForm] = useState({ username: "", password: "", role: "cashier" as "admin" | "cashier", pin: "" });
-  const [editForm, setEditForm] = useState({ role: "cashier" as "admin" | "cashier", pin: "", is_active: true });
+  const [addForm, setAddForm] = useState({
+    username: "",
+    password: "",
+    role: "cashier" as "admin" | "cashier" | "developer",
+    pin: ""
+  });
+  const [editForm, setEditForm] = useState({
+    role: "cashier" as "admin" | "cashier" | "developer",
+    pin: "",
+    is_active: true
+  });
 
-  const fetchUsers = useCallback(async () => {
+  const fetchStaff = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(apiUrl("users"));
-      if (!res.ok) throw new Error("Failed to load users");
+      const res = await fetch(apiUrl("staff"));
+      if (!res.ok) throw new Error("Failed to load staff");
       const data = await res.json();
       setUsers(Array.isArray(data) ? data : []);
     } catch {
-      toast.error("Failed to load users");
+      toast.error("Failed to load staff");
       setUsers([]);
     } finally {
       setLoading(false);
@@ -57,8 +66,8 @@ export function UserManagementScreen() {
   }, []);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    fetchStaff();
+  }, [fetchStaff]);
 
   const handleCreate = async () => {
     if (!addForm.username.trim() || !addForm.password.trim() || addForm.pin.length < 4 || addForm.pin.length > 6) {
@@ -67,7 +76,7 @@ export function UserManagementScreen() {
     }
     setSaving(true);
     try {
-      const res = await fetch(apiUrl("users"), {
+      const res = await fetch(apiUrl("staff"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -81,10 +90,10 @@ export function UserManagementScreen() {
         const err = await res.json().catch(() => ({}));
         throw new Error((err as { detail?: string }).detail ?? "Create failed");
       }
-      toast.success("User created");
+      toast.success("Staff member created");
       setAddOpen(false);
       setAddForm({ username: "", password: "", role: "cashier", pin: "" });
-      fetchUsers();
+      fetchStaff();
     } catch (e) {
       toast.error(String(e instanceof Error ? e.message : "Create failed"));
     } finally {
@@ -92,9 +101,9 @@ export function UserManagementScreen() {
     }
   };
 
-  const openEdit = (u: UserRow) => {
+  const openEdit = (u: StaffRow) => {
     setEditingUser(u);
-    setEditForm({ role: u.role as "admin" | "cashier", pin: "", is_active: u.is_active });
+    setEditForm({ role: u.role as any, pin: "", is_active: u.is_active });
     setEditOpen(true);
   };
 
@@ -112,16 +121,16 @@ export function UserManagementScreen() {
         is_active: editForm.is_active,
       };
       if (editForm.pin) body.pin = editForm.pin;
-      const res = await fetch(apiUrl(`users/${editingUser.id}`), {
+      const res = await fetch(apiUrl(`staff/${editingUser.id}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Update failed");
-      toast.success("User updated");
+      toast.success("Staff member updated");
       setEditOpen(false);
       setEditingUser(null);
-      fetchUsers();
+      fetchStaff();
     } catch {
       toast.error("Update failed");
     } finally {
@@ -133,20 +142,20 @@ export function UserManagementScreen() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-6">
         <div className="min-w-0 flex-1">
-          <h1 className="text-3xl font-bold">Users & Staff Management</h1>
+          <h1 className="text-3xl font-bold">Staff Management</h1>
           <p className="text-muted-foreground mt-1">
-            Manage team members, roles, and permissions
+            Manage team members, roles, and administrative access
           </p>
         </div>
         <Button onClick={() => setAddOpen(true)} className="gap-2 shrink-0">
           <Plus className="size-4" />
-          Add User
+          Add Staff
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Staff List</CardTitle>
+          <CardTitle>Team Members</CardTitle>
         </CardHeader>
         <CardContent className="p-0 pt-0">
           {loading ? (
@@ -167,8 +176,10 @@ export function UserManagementScreen() {
                     <TableCell className="font-medium">{u.username}</TableCell>
                     <TableCell>
                       <span className={cn(
-                        "rounded px-2 py-0.5 text-xs font-medium",
-                        u.role === "admin" ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                        "rounded px-2 py-0.5 text-xs font-medium uppercase",
+                        u.role === "admin" ? "bg-primary/20 text-primary border border-primary/30" :
+                          u.role === "developer" ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" :
+                            "bg-muted text-muted-foreground"
                       )}>
                         {u.role}
                       </span>
@@ -198,11 +209,11 @@ export function UserManagementScreen() {
         </CardContent>
       </Card>
 
-      {/* Add User Dialog */}
+      {/* Add Staff Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent>
+        <DialogContent className="glass animate-in shadow-2xl border-white/10 no-scrollbar">
           <DialogHeader>
-            <DialogTitle>Add User</DialogTitle>
+            <DialogTitle>Add Staff Member</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -226,23 +237,19 @@ export function UserManagementScreen() {
             </div>
             <div className="grid gap-2">
               <Label>Role</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={addForm.role === "admin" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setAddForm((f) => ({ ...f, role: "admin" }))}
-                >
-                  Admin
-                </Button>
-                <Button
-                  type="button"
-                  variant={addForm.role === "cashier" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setAddForm((f) => ({ ...f, role: "cashier" }))}
-                >
-                  Cashier
-                </Button>
+              <div className="flex flex-wrap gap-2">
+                {(["admin", "cashier", "developer"] as const).map((r) => (
+                  <Button
+                    key={r}
+                    type="button"
+                    variant={addForm.role === r ? "default" : "outline"}
+                    size="sm"
+                    className="capitalize"
+                    onClick={() => setAddForm((f) => ({ ...f, role: r }))}
+                  >
+                    {r}
+                  </Button>
+                ))}
               </div>
             </div>
             <div className="grid gap-2">
@@ -265,36 +272,32 @@ export function UserManagementScreen() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit User Dialog */}
+      {/* Edit Staff Dialog */}
       <Dialog open={editOpen} onOpenChange={(o) => { if (!o) setEditingUser(null); setEditOpen(o); }}>
-        <DialogContent>
+        <DialogContent className="glass animate-in shadow-2xl border-white/10 no-scrollbar">
           <DialogHeader>
-            <DialogTitle>Edit User {editingUser?.username}</DialogTitle>
+            <DialogTitle>Edit Staff: {editingUser?.username}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label>Role</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={editForm.role === "admin" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setEditForm((f) => ({ ...f, role: "admin" }))}
-                >
-                  Admin
-                </Button>
-                <Button
-                  type="button"
-                  variant={editForm.role === "cashier" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setEditForm((f) => ({ ...f, role: "cashier" }))}
-                >
-                  Cashier
-                </Button>
+              <div className="flex flex-wrap gap-2">
+                {(["admin", "cashier", "developer"] as const).map((r) => (
+                  <Button
+                    key={r}
+                    type="button"
+                    variant={editForm.role === r ? "default" : "outline"}
+                    size="sm"
+                    className="capitalize"
+                    onClick={() => setEditForm((f) => ({ ...f, role: r }))}
+                  >
+                    {r}
+                  </Button>
+                ))}
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-pin">New PIN (4–6 digits, leave blank to keep)</Label>
+              <Label htmlFor="edit-pin">New PIN (4–6 digits, leave blank to keep current)</Label>
               <Input
                 id="edit-pin"
                 type="password"
@@ -311,14 +314,14 @@ export function UserManagementScreen() {
                 id="edit-active"
                 checked={editForm.is_active}
                 onChange={(e) => setEditForm((f) => ({ ...f, is_active: e.target.checked }))}
-                className="rounded border-border"
+                className="rounded border-border accent-primary"
               />
-              <Label htmlFor="edit-active">Active</Label>
+              <Label htmlFor="edit-active">User is Active</Label>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdate} disabled={saving}>Save</Button>
+            <Button onClick={handleUpdate} disabled={saving}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

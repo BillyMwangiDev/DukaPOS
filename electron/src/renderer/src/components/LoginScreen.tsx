@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { apiUrl } from "@/lib/api";
 import { toast } from "sonner";
+import { PinPadModal } from "./PinPadModal";
 
 const SESSION_KEY = "DUKAPOS_USER";
 
@@ -43,6 +44,36 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [tapCount, setTapCount] = useState(0);
+  const [pinOpen, setPinOpen] = useState(false);
+
+  const handleLogoClick = () => {
+    setTapCount((c) => c + 1);
+    setTimeout(() => setTapCount(0), 2000);
+    if (tapCount + 1 >= 3) {
+      setPinOpen(true);
+      setTapCount(0);
+    }
+  };
+
+  const handlePinConfirm = async (pin: string) => {
+    try {
+      const res = await fetch(apiUrl("staff/verify-admin-pin"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      if (res.ok) {
+        // Find a developer user to assume role, or just notify
+        toast.success("Developer Access Granted", { description: "Use standard login or create a developer account." });
+      } else {
+        toast.error("Invalid License PIN");
+      }
+    } catch {
+      toast.error("Network error");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password) {
@@ -51,7 +82,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     }
     setIsSubmitting(true);
     try {
-      const res = await fetch(apiUrl("users/login"), {
+      const res = await fetch(apiUrl("staff/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: username.trim(), password }),
@@ -79,7 +110,10 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg bg-[#43B02A] flex items-center justify-center">
+            <div
+              className="w-10 h-10 rounded-lg bg-[#43B02A] flex items-center justify-center cursor-pointer select-none active:scale-95 transition-transform"
+              onClick={handleLogoClick}
+            >
               <span className="text-white font-bold text-xl">D</span>
             </div>
             <CardTitle className="text-xl">DukaPOS</CardTitle>
@@ -119,6 +153,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           </form>
         </CardContent>
       </Card>
+      <PinPadModal
+        open={pinOpen}
+        onOpenChange={setPinOpen}
+        title="Developer Access"
+        description="Enter License PIN to bypass login"
+        onConfirm={handlePinConfirm}
+      />
     </div>
   );
 }

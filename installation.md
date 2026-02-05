@@ -18,17 +18,21 @@ Best for retail environments. Includes the automated backend and hardware manage
 ### 🛠️ Option B: Advanced Developer Setup (From Source)
 Best for custom modifications or theme adjustments.
 
-1.  **Environment**: Ensure Python 3.11+ and Node.js 18+ are installed.
-2.  **Dependencies**:
+1.  **Environment**: Ensure Python 3.11+ and Node.js 20+ are installed.
+2.  **Automated Setup**:
+    Run the root bootstrapper to install all backend/frontend dependencies and initialize the database:
     ```bash
-    cd DukaPOS
-    npm run install:all
+    .\setup.bat
     ```
-3.  **Building for Production**:
-    To manually bundle the application, run the optimized build command:
+3.  **Running the App**:
     ```bash
     cd electron
-    npm run build
+    npm run dev
+    ```
+4.  **Testing**:
+    Run the unified test runner to verify all systems:
+    ```bash
+    .\run_all_tests.bat
     ```
     *Note: The build process is pre-configured with a 4GB memory boost to handle the integrated backend packaging.*
 

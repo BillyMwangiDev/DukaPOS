@@ -8,17 +8,19 @@ import { Toaster, toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
+import { PinPadModal } from "@/components/PinPadModal";
+import { useIdleTimeout, DEFAULT_IDLE_TIMEOUT_MS, DEFAULT_WARNING_MS } from "@/hooks/useIdleTimeout";
+import { IdleWarningModal } from "@/components/IdleWarningModal";
+import { ShiftLockScreen } from "@/components/ShiftLockScreen";
+import { ZeroScrollDashboard } from "@/components/ZeroScrollDashboard";
 import { Header } from "@/components/Header";
 import { ProductGrid } from "@/components/ProductGrid";
-import { CartSection } from "@/components/CartSection";
-import { CommandCenter } from "@/components/CommandCenter";
 import { PaymentModal } from "@/components/PaymentModal";
 import { OpenShiftModal } from "@/components/OpenShiftModal";
-import { CloseShiftModal } from "@/components/CloseShiftModal";
-import { PinPadModal } from "@/components/PinPadModal";
-import { HeldOrdersDialog } from "@/components/HeldOrdersDialog";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { LoginScreen, getStoredUser, setStoredUser, type LoggedInUser } from "@/components/LoginScreen";
+import { CloseShiftModal } from "@/components/CloseShiftModal";
+import { HeldOrdersDialog } from "@/components/HeldOrdersDialog";
 
 type View = "checkout" | "inventory" | "admin";
 
@@ -38,6 +40,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<LoggedInUser | null>(() => getStoredUser());
   const [currentView, setCurrentView] = useState<View>("checkout");
   const [darkMode, setDarkMode] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "mpesa" | "credit">("cash");
   const [isOnline, setIsOnline] = useState(
@@ -54,11 +57,23 @@ export default function App() {
   const [isHeldOrdersOpen, setIsHeldOrdersOpen] = useState(false);
   const [storeSettings, setStoreSettings] = useState<{
     shop_name: string;
+    station_id: string;
+    kra_pin: string;
+    contact_phone: string;
     mpesa_till_number: string;
     auto_print_receipt: boolean;
     low_stock_warning_enabled: boolean;
     sound_enabled: boolean;
-  }>({ shop_name: "DukaPOS", mpesa_till_number: "", auto_print_receipt: true, low_stock_warning_enabled: true, sound_enabled: true });
+  }>({
+    shop_name: "DukaPOS",
+    station_id: "POS-01",
+    kra_pin: "",
+    contact_phone: "",
+    mpesa_till_number: "",
+    auto_print_receipt: true,
+    low_stock_warning_enabled: true,
+    sound_enabled: true
+  });
   const searchInputRef = useRef<HTMLInputElement>(null);
   const lastScannedBarcodeRef = useRef<string | null>(null);
   const lastScannedAtRef = useRef<number>(0);
@@ -77,6 +92,13 @@ export default function App() {
     updatePrice,
   } = useCart();
   const { subtotalGross, totalNet, totalTax, totalGross } = useCartTotals();
+
+  const { isWarning, secondsRemaining, reset: resetIdle, resume: resumeIdle } = useIdleTimeout({
+    timeoutMs: DEFAULT_IDLE_TIMEOUT_MS,
+    warningMs: DEFAULT_WARNING_MS,
+    onIdle: () => setIsLocked(true),
+    enabled: !!currentUser && !isLocked && !isPaymentModalOpen,
+  });
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -132,6 +154,9 @@ export default function App() {
       if (data && typeof data === "object") {
         setStoreSettings({
           shop_name: typeof data.shop_name === "string" ? data.shop_name : "DukaPOS",
+          station_id: typeof data.station_id === "string" ? data.station_id : "POS-01",
+          kra_pin: typeof data.kra_pin === "string" ? data.kra_pin : "",
+          contact_phone: typeof data.contact_phone === "string" ? data.contact_phone : "",
           mpesa_till_number: typeof data.mpesa_till_number === "string" ? data.mpesa_till_number : "",
           auto_print_receipt: data.auto_print_receipt !== false,
           low_stock_warning_enabled: data.low_stock_warning_enabled !== false,
@@ -345,12 +370,13 @@ export default function App() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            cashier_id: cashierId,
+            staff_id: currentUser?.id ?? 1,
             shift_id: currentShift?.id ?? null,
-            payment_method: "MPESA",
-            mpesa_code: null,
+            payment_type: "MOBILE",
+            payment_subtype: "M-Pesa",
             checkout_request_id: checkoutRequestId,
             payment_status: "PENDING",
+            origin_station: storeSettings.station_id || "POS-01",
             use_local_invoice: !getEtimsEnabled(),
             items: items.map((i) => ({
               product_id: i.productId,
@@ -369,7 +395,7 @@ export default function App() {
         toast.error("Transaction failed", { description: String(e) });
       }
     },
-    [items, totalGross, returnMode, currentShift?.id, cashierId]
+    [items, totalGross, returnMode, currentShift?.id, currentUser?.id, storeSettings.station_id]
   );
 
   const handleMpesaVerifySuccess = useCallback(() => {
@@ -379,6 +405,8 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           shop_name: storeSettings.shop_name || "DukaPOS",
+          kra_pin: storeSettings.kra_pin,
+          contact_phone: storeSettings.contact_phone,
           items: items.map((i) => ({
             name: i.name,
             quantity: i.quantity,
@@ -424,24 +452,40 @@ export default function App() {
     method: string,
     details?: Record<string, unknown>
   ) => {
-    const paymentMethod = method.toUpperCase();
-    const mpesaCode =
-      method === "mpesa" && details && typeof details.code === "string"
-        ? details.code
-        : undefined;
-    const customerId = method === "credit" && details && typeof details.customer_id === "number"
-      ? details.customer_id
-      : undefined;
+    // Standardize logic: details.payments contains the list if multi-tender
+    const paymentList = (details?.payments as any[]) || [];
+
+    // Pick primary payment type
+    let primaryType = "CASH";
+    let primarySubtype: string | undefined = undefined;
+    let referenceCode: string | undefined = undefined;
+
+    if (paymentList.length > 1) {
+      primaryType = "SPLIT";
+    } else if (paymentList.length === 1) {
+      primaryType = paymentList[0].method;
+      primarySubtype = paymentList[0].details?.subtype;
+      referenceCode = paymentList[0].details?.code;
+    } else {
+      // Fallback for legacy calls if any
+      primaryType = method === "mpesa" ? "MOBILE" : method.toUpperCase();
+    }
+
+    const customerId = details?.customer_id as number | undefined;
+
     try {
       const txRes = await fetch(apiUrl("transactions"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cashier_id: cashierId,
+          staff_id: currentUser?.id ?? 1,
           shift_id: currentShift?.id ?? null,
           customer_id: customerId ?? null,
-          payment_method: paymentMethod,
-          mpesa_code: mpesaCode ?? null,
+          payment_type: primaryType,
+          payment_subtype: primarySubtype ?? null,
+          reference_code: referenceCode ?? null,
+          payment_details_json: paymentList.length > 1 ? JSON.stringify(paymentList) : null,
+          origin_station: storeSettings.station_id || "POS-01",
           use_local_invoice: !getEtimsEnabled(),
           items: items.map((i) => ({
             product_id: i.productId,
@@ -468,6 +512,7 @@ export default function App() {
       toast.error("Transaction failed", { description: String(e) });
       return;
     }
+
     if (storeSettings.auto_print_receipt !== false) {
       try {
         await fetch(apiUrl("print/receipt"), {
@@ -475,28 +520,32 @@ export default function App() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             shop_name: storeSettings.shop_name || "DukaPOS",
+            station_id: storeSettings.station_id || "POS-01",
+            kra_pin: storeSettings.kra_pin,
+            contact_phone: storeSettings.contact_phone,
             items: items.map((i) => ({
               name: i.name,
               quantity: i.quantity,
               price: getLinePriceGross(i),
             })),
             total_gross: totalGross,
-            payment_method: paymentMethod,
+            payment_method: primaryType,
+            payment_subtype: primarySubtype,
+            payments: paymentList, // Send full list to printer
           }),
         });
 
-        // Kick drawer automatically for cash payments
-        if (paymentMethod === "CASH") {
-          fetch(apiUrl("print/kick-drawer"), { method: "POST" }).catch(() => {
-            /* non-critical hardware error */
-          });
+        // Kick drawer automatically for cash payments (or if split contains cash)
+        const hasCash = paymentList.some(p => p.method === "CASH") || primaryType === "CASH";
+        if (hasCash) {
+          fetch(apiUrl("hardware/kick-drawer"), { method: "POST" }).catch(() => { });
         }
       } catch (_) {
         toast.warning("Receipt print failed", { description: "Sale was saved." });
       }
     }
     toast.success("Sale completed!", {
-      description: `Payment received via ${paymentMethod}`,
+      description: `Receipt generated successfully`,
     });
     if (storeSettings.sound_enabled) playSaleBeep();
     clearCart();
@@ -531,8 +580,10 @@ export default function App() {
           returnMode={returnMode}
           searchInputRef={searchInputRef}
           shopName={storeSettings.shop_name}
+          stationId={storeSettings.station_id}
           currentUser={currentUser}
           onLogout={handleLogout}
+          onLock={() => setIsLocked(true)}
         />
       </div>
 
@@ -683,74 +734,44 @@ export default function App() {
       />
       <main className="pos-body">
         {currentView === "checkout" ? (
-          <div className="flex flex-1 overflow-hidden bg-muted/5">
-            {/* Left Column: Current Transaction (The Cart) */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="h-12 border-b bg-card flex items-center px-6 justify-between shrink-0">
-                <h3 className="text-sm font-black uppercase tracking-widest text-[#43B02A]">Current Sale</h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold bg-[#43B02A]/10 text-[#43B02A] px-2 py-0.5 rounded-full uppercase tracking-tighter">
-                    {items.length} Items Scanner Ready
-                  </span>
-                </div>
-              </div>
-              <div className="flex-1 overflow-hidden flex flex-col">
-                <CartSection
-                  items={items}
-                  lastScannedId={lastScannedId ?? undefined}
-                  onUpdateQuantity={updateQuantity}
-                  onRemoveItem={removeItem}
-                  onUpdatePrice={(id, price) => {
-                    setPendingPriceOverride({ id, price });
-                    setPendingAdminAction("price_override");
-                    setIsAdminPinModalOpen(true);
-                  }}
-                  onClearCart={() => {
-                    if (confirm("Discard this sale? Items will be cleared.")) {
-                      clearCart();
-                      toast.info("Sale discarded");
-                    }
-                  }}
-                  returnMode={returnMode}
-                />
-              </div>
-            </div>
-
-            {/* Right Sidebar: Command Center (Totals & Payments) */}
-            <div className="w-[420px] flex-shrink-0 flex flex-col overflow-hidden bg-card border-l shadow-2xl z-10">
-              <div className="h-12 border-b bg-muted/10 flex items-center px-4 shrink-0">
-                <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Checkout Summary</h3>
-              </div>
-              <div className="flex-1 bg-background">
-                <CommandCenter
-                  subtotalGross={subtotalGross}
-                  totalNet={totalNet}
-                  totalTax={totalTax}
-                  totalGross={totalGross}
-                  onCashPayment={handleCashPayment}
-                  onMpesaPayment={handleMpesaPayment}
-                  onCreditPayment={handleCreditPayment}
-                  onHoldOrder={handleHoldOrder}
-                  onOpenHeldOrders={() => setIsHeldOrdersOpen(true)}
-                  returnMode={returnMode}
-                  onToggleReturnMode={() => setReturnMode(!returnMode)}
-                />
-              </div>
-            </div>
-
-            <HeldOrdersDialog
-              open={isHeldOrdersOpen}
-              onOpenChange={setIsHeldOrdersOpen}
-              cashierId={cashierId}
-              onRestore={(restoredItems) => {
-                replaceCart(restoredItems);
-                toast.success("Order restored", { description: "Cart loaded from held order." });
-              }}
-            />
-          </div>
+          <ZeroScrollDashboard
+            items={items}
+            subtotalGross={subtotalGross}
+            totalNet={totalNet}
+            totalTax={totalTax}
+            totalGross={totalGross}
+            lastScannedId={lastScannedId ?? undefined}
+            onUpdateQuantity={updateQuantity}
+            onRemoveItem={removeItem}
+            onUpdatePrice={(id, price) => {
+              setPendingPriceOverride({ id, price });
+              setPendingAdminAction("price_override");
+              setIsAdminPinModalOpen(true);
+            }}
+            onClearCart={() => {
+              if (confirm("Discard this sale? Items will be cleared.")) {
+                clearCart();
+                toast.info("Sale discarded");
+              }
+            }}
+            onCashPayment={handleCashPayment}
+            onMpesaPayment={handleMpesaPayment}
+            onCreditPayment={handleCreditPayment}
+            onHoldOrder={handleHoldOrder}
+            onOpenHeldOrders={() => setIsHeldOrdersOpen(true)}
+            returnMode={returnMode}
+            onToggleReturnMode={() => setReturnMode(!returnMode)}
+          />
         ) : currentView === "inventory" ? (
-          <div className="flex flex-1 flex-col p-6 overflow-hidden">
-            <ProductGrid onSelectProduct={addProductToCart} />
+          <div className="flex flex-1 flex-col overflow-hidden animate-in">
+            <div className="h-12 border-b bg-card/50 backdrop-blur-md flex items-center px-6 shrink-0">
+              <h3 className="text-xs font-black uppercase tracking-widest text-ocean-blue">
+                Inventory Browser
+              </h3>
+            </div>
+            <div className="flex-1 p-6 overflow-hidden">
+              <ProductGrid onSelectProduct={addProductToCart} />
+            </div>
           </div>
         ) : (
           <div className="flex flex-1 overflow-hidden">
@@ -783,6 +804,17 @@ export default function App() {
           </div>
         )}
       </main>
+
+      <HeldOrdersDialog
+        open={isHeldOrdersOpen}
+        onOpenChange={setIsHeldOrdersOpen}
+        cashierId={cashierId}
+        onRestore={(restoredItems) => {
+          replaceCart(restoredItems);
+          toast.success("Order restored", { description: "Cart loaded from held order." });
+        }}
+      />
+
       <PaymentModal
         open={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
@@ -794,6 +826,22 @@ export default function App() {
         initialCashTendered={undefined}
         mpesaTillNumber={storeSettings.mpesa_till_number}
       />
+      <IdleWarningModal
+        open={isWarning && !isLocked}
+        secondsRemaining={secondsRemaining}
+        onStayLoggedIn={resetIdle}
+        onLogout={handleLogout}
+      />
+      {isLocked && currentUser && (
+        <ShiftLockScreen
+          user={currentUser}
+          onUnlock={() => {
+            setIsLocked(false);
+            resumeIdle();
+          }}
+          onLogout={handleLogout}
+        />
+      )}
       <Toaster position="bottom-right" richColors />
     </div>
   );

@@ -163,7 +163,7 @@ export function InventoryManagerScreen({ readOnly = false }: InventoryManagerScr
     buy > 0 ? (((sell - buy) / buy) * 100).toFixed(1) : "0";
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 animate-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Inventory Management</h1>
@@ -173,6 +173,16 @@ export function InventoryManagerScreen({ readOnly = false }: InventoryManagerScr
         </div>
         {!readOnly && (
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const url = apiUrl("reports/inventory/export/xlsx");
+                window.open(url, "_blank");
+              }}
+            >
+              <Upload className="mr-2 size-4 rotate-180" />
+              Export Excel
+            </Button>
             <Button
               variant="outline"
               onClick={() => toast.info("Bulk import", { description: "Use the Inventory tab from the main nav for Excel/CSV import." })}
@@ -208,7 +218,7 @@ export function InventoryManagerScreen({ readOnly = false }: InventoryManagerScr
         </select>
       </div>
 
-      <Card>
+      <Card className="glass shadow-xl border-white/5 overflow-hidden">
         <CardContent className="p-0">
           {loading ? (
             <div className="p-8 text-center text-muted-foreground">Loading...</div>
@@ -231,10 +241,10 @@ export function InventoryManagerScreen({ readOnly = false }: InventoryManagerScr
                   const status = STOCK_STATUS.out(p.stock_quantity)
                     ? "out"
                     : STOCK_STATUS.low(p.stock_quantity, min)
-                    ? "low"
-                    : STOCK_STATUS.medium(p.stock_quantity, min)
-                    ? "medium"
-                    : "inStock";
+                      ? "low"
+                      : STOCK_STATUS.medium(p.stock_quantity, min)
+                        ? "medium"
+                        : "inStock";
                   return (
                     <TableRow key={p.id}>
                       <TableCell className="font-medium">{p.name}</TableCell>
@@ -291,7 +301,7 @@ export function InventoryManagerScreen({ readOnly = false }: InventoryManagerScr
       </Card>
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md glass animate-in shadow-2xl border-white/10 no-scrollbar">
           <DialogHeader>
             <DialogTitle>{editing?.id ? "Edit Product" : "Add Product"}</DialogTitle>
           </DialogHeader>

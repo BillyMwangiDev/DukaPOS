@@ -50,13 +50,14 @@ erDiagram
 
     TRANSACTION {
         int id PK
+        string receipt_id UK "POS-01-XXXX"
         timestamp timestamp
         int shift_id FK
         int cashier_id FK
         int customer_id FK
-        string payment_method "CASH | MPESA | CREDIT"
+        string payment_method "CASH | MOBILE | CREDIT"
         float total_amount
-        string invoice_number
+        string origin_station
         bool is_return
     }
 
@@ -64,37 +65,21 @@ erDiagram
         int id PK
         int transaction_id FK
         int product_id FK
-        int cashier_id FK
+        int staff_id FK
         int quantity
         float price_at_moment
         bool is_return
     }
 
-    SHIFT {
-        int id PK
-        timestamp opened_at
-        timestamp closed_at
-        int cashier_id FK
-        float opening_float
-        float closing_actual
-        float closing_expected
-    }
-
-    HELD-ORDER {
-        int id PK
-        int cashier_id FK
-        string items_json
-        float total_gross
-        timestamp created_at
-    }
-
     STORE-SETTINGS {
         int id PK
         string shop_name
+        string station_id
         string kra_pin
         string mpesa_till_number
         bool auto_print_receipt
-        bool sound_enabled
+        int staff_limit
+        string master_ip
     }
 ```
 

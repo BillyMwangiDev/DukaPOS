@@ -1,0 +1,127 @@
+name: DukaPOS Production CI/CD
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  lint-and-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Renderer Dependencies
+        working-directory: electron/src/renderer
+        run: npm ci
+
+      - name: Lint Renderer (ESLint)
+        working-directory: electron/src/renderer
+        run: npx eslint . --max-warnings 0
+
+      - name: Security Audit (NPM)
+        working-directory: electron/src/renderer
+        run: npm audit --audit-level=high
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff safety
+
+      - name: Lint Backend (Ruff)
+        working-directory: backend
+        run: ruff check .
+
+      - name: Security Audit (Python Safety)
+        working-directory: backend
+        run: safety check
+
+  test-backend:
+    needs: lint-and-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+      - name: Install Dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+      - name: Run Pytest
+        working-directory: backend
+        run: pytest
+
+  test-frontend:
+    needs: lint-and-audit
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Dependencies
+        working-directory: electron
+        run: |
+          npm ci
+          cd src/renderer && npm ci
+      - name: Install Playwright Browsers
+        working-directory: electron
+        run: npx playwright install --with-deps
+      - name: Run Playwright Tests
+        working-directory: electron
+        run: npx playwright test
+
+  build-production:
+    needs: [test-backend, test-frontend]
+    runs-on: windows-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+
+      - name: Build Backend (PyInstaller)
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          .\build_backend.bat
+
+      - name: Build Electron App
+        working-directory: electron
+        run: |
+          npm ci
+          cd src/renderer && npm ci
+          npm run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DukaPOS-Installer
+          path: electron/dist/*.exe

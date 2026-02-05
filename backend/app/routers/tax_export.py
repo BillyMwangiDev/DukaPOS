@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlmodel import Session, select
 
 from app.database import engine
-from app.models import Transaction, TransactionItem, Customer, Product, StoreSettings
+from app.models import Receipt, SaleItem, Customer, Product, StoreSettings
 
 router = APIRouter(prefix="/tax", tags=["tax"])
 
@@ -21,36 +21,32 @@ def export_etims_csv(
     start_date: Optional[str] = Query(None, description="YYYY-MM-DD"),
     end_date: Optional[str] = Query(None, description="YYYY-MM-DD"),
 ):
-    """
-    Generate KRA eTIMS CSV with columns:
-    Invoice_Date, Invoice_Number, Customer_PIN, Total_Amount, VAT_Amount(16%), Exempt_Amount(0).
-    """
+    """Generate KRA eTIMS CSV."""
     with Session(engine) as session:
-        stmt = select(Transaction).order_by(Transaction.timestamp)
+        stmt = select(Receipt).order_by(Receipt.timestamp)
         if start_date:
             try:
                 start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
-                stmt = stmt.where(Transaction.timestamp >= start)
-            except ValueError:
-                pass
+                stmt = stmt.where(Receipt.timestamp >= start)
+            except ValueError: pass
         if end_date:
             try:
                 end = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
                 end = end.replace(hour=23, minute=59, second=59, microsecond=999999)
-                stmt = stmt.where(Transaction.timestamp <= end)
-            except ValueError:
-                pass
-        txs = session.exec(stmt).all()
+                stmt = stmt.where(Receipt.timestamp <= end)
+            except ValueError: pass
+            
+        receipts = session.exec(stmt).all()
         rows = []
-        for t in txs:
-            inv_date = t.timestamp.strftime("%Y-%m-%d") if t.timestamp else ""
-            inv_number = t.invoice_number or f"INV-{t.id}"
+        for r in receipts:
+            inv_date = r.timestamp.strftime("%Y-%m-%d") if r.timestamp else ""
+            inv_number = r.receipt_id
             customer_pin = ""
-            if t.customer_id:
-                cust = session.get(Customer, t.customer_id)
+            if r.customer_id:
+                cust = session.get(Customer, r.customer_id)
                 if cust and getattr(cust, "kra_pin", None):
                     customer_pin = (cust.kra_pin or "").strip()
-            total = t.total_amount
+            total = r.total_amount
             vat = round(total / 1.16 * 0.16, 2)
             exempt = 0
             rows.append({
@@ -61,6 +57,7 @@ def export_etims_csv(
                 "VAT_Amount(16%)": f"{vat:.2f}",
                 "Exempt_Amount(0)": f"{exempt:.2f}",
             })
+            
         buf = io.StringIO()
         if rows:
             w = csv.DictWriter(buf, fieldnames=["Invoice_Date", "Invoice_Number", "Customer_PIN", "Total_Amount", "VAT_Amount(16%)", "Exempt_Amount(0)"])
@@ -76,38 +73,38 @@ def export_etims_csv(
         )
 
 
-def build_vscu_payload_for_transaction(transaction_id: int) -> Dict[str, Any] | None:
-    """
-    Build eTIMS VSCU-style payload for a transaction (for optional live KRA submission).
-    Returns None if transaction not found.
-    """
+def build_vscu_payload_for_transaction(receipt_db_id: int) -> Dict[str, Any] | None:
+    """Build eTIMS VSCU-style payload for a receipt."""
     with Session(engine) as session:
-        tx = session.get(Transaction, transaction_id)
-        if not tx:
-            return None
+        r = session.get(Receipt, receipt_db_id)
+        if not r: return None
         store = session.get(StoreSettings, STORE_SETTINGS_ID)
         seller_pin = (store.kra_pin or "").strip() if store else ""
         buyer_pin = ""
-        if tx.customer_id:
-            cust = session.get(Customer, tx.customer_id)
+        if r.customer_id:
+            cust = session.get(Customer, r.customer_id)
             if cust and getattr(cust, "kra_pin", None):
                 buyer_pin = (cust.kra_pin or "").strip()
-        inv_number = tx.invoice_number or f"INV-{tx.id}"
-        inv_date = tx.timestamp.strftime("%Y-%m-%dT%H:%M:%S") if tx.timestamp else ""
-        total = tx.total_amount
+        
+        inv_number = r.receipt_id
+        inv_date = r.timestamp.strftime("%Y-%m-%dT%H:%M:%S") if r.timestamp else ""
+        total = r.total_amount
         vat_amount = round(total / 1.16 * 0.16, 2)
         items: List[Dict[str, Any]] = []
-        for ti in session.exec(select(TransactionItem).where(TransactionItem.transaction_id == tx.id)).all():
-            product = session.get(Product, ti.product_id)
-            name = product.name if product else f"Product {ti.product_id}"
-            line_total = ti.price_at_moment * ti.quantity
+        
+        sale_items = session.exec(select(SaleItem).where(SaleItem.receipt_id == r.id)).all()
+        for si in sale_items:
+            product = session.get(Product, si.product_id)
+            name = product.name if product else f"Product {si.product_id}"
+            line_total = si.price_at_moment * si.quantity
             items.append({
                 "description": name,
-                "quantity": ti.quantity,
-                "unit_price": round(ti.price_at_moment, 2),
+                "quantity": si.quantity,
+                "unit_price": round(si.price_at_moment, 2),
                 "amount": round(line_total, 2),
                 "vat_rate": "16",
             })
+            
         return {
             "invoice_number": inv_number,
             "invoice_date": inv_date,
@@ -117,18 +114,15 @@ def build_vscu_payload_for_transaction(transaction_id: int) -> Dict[str, Any] | 
             "vat_amount": vat_amount,
             "items": items,
             "receipt_type": "normal",
-            "transaction_type": "credit_note" if tx.is_return else "sale",
+            "transaction_type": "credit_note" if r.is_return else "sale",
         }
 
 
 @router.get("/vscu-payload")
-def get_vscu_payload(transaction_id: int = Query(..., description="Transaction ID")):
-    """
-    Build eTIMS VSCU-style payload for a transaction (integration point only).
-    When eTIMS is enabled, call this to get the JSON payload to POST to your VSCU/KRA service.
-    Optional: set KRA_SUBMISSION_URL to have DukaPOS POST this automatically on each sale.
-    """
-    payload = build_vscu_payload_for_transaction(transaction_id)
+def get_vscu_payload(id: int = Query(..., description="Receipt Database ID")):
+    """Get VSCU-style payload for a receipt."""
+    payload = build_vscu_payload_for_transaction(id)
     if payload is None:
-        raise HTTPException(status_code=404, detail="Transaction not found")
+        raise HTTPException(status_code=404, detail="Receipt not found")
     return payload
+

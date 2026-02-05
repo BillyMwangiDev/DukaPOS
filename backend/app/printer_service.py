@@ -43,6 +43,11 @@ class ESCPOSPrinter:
                 from escpos.printer import Dummy
                 self._printer = Dummy()
                 return self._printer
+            if self._backend == "file":
+                from escpos.printer import Dummy
+                # We use Dummy but we'll flush it to a file
+                self._printer = Dummy()
+                return self._printer
             if self._backend == "usb":
                 from escpos.printer import Usb
                 self._printer = Usb(**self._kwargs)
@@ -67,7 +72,19 @@ class ESCPOSPrinter:
             p.raw(CASH_DRAWER_KICK)
         elif hasattr(p, "cashdraw") and callable(getattr(p, "cashdraw")):
             p.cashdraw(2)  # pin 2 typical for RJ11; Dummy supports this
-        # else no-op (e.g. Dummy without raw)
+        
+        if self._backend == "file":
+            self._save_to_log("--- CASH DRAWER KICKED ---")
+
+    def _save_to_log(self, content: str) -> None:
+        """Helper to append text to a local log file for virtual printer mode."""
+        from app.config import PROJECT_ROOT
+        log_path = PROJECT_ROOT / "receipts_log.txt"
+        try:
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(content + "\n")
+        except Exception:
+            pass
 
     def print_receipt(
         self,
@@ -81,11 +98,22 @@ class ESCPOSPrinter:
         Lightweight receipt: plain text + ESC/POS (bold header, center shop name).
         items: list of { "name", "qty"|"quantity", "price" } (price = gross per unit).
         """
+        station_id = kwargs.get("station_id", "POS-01")
+        kra_pin = kwargs.get("kra_pin")
+        contact_phone = kwargs.get("contact_phone")
+        payment_subtype = kwargs.get("payment_subtype")
+        payments = kwargs.get("payments") # List[dict]
+
         p = self._get_printer()
         # Center + bold for shop name (header)
         p.set(align="center", bold=True)
         p.text(f"\n{shop_name}\n")
         p.set(bold=False)
+        if kra_pin:
+            p.text(f"KRA PIN: {kra_pin}\n")
+        if contact_phone:
+            p.text(f"TEL: {contact_phone}\n")
+        p.text(f"Station: {station_id}\n")
         p.text("--------------------------------\n")
         p.set(align="left")
         for it in items:
@@ -97,10 +125,33 @@ class ESCPOSPrinter:
         p.text("--------------------------------\n")
         p.set(align="right")
         p.text(f"TOTAL: KSh {total_gross:.2f}\n")
-        p.text(f"Payment: {payment_method}\n")
+        
+        # Multi-tender breakdown
+        if payments and len(payments) > 0:
+            p.text("PAYMENTS:\n")
+            for py in payments:
+                meth = str(py.get("method", "")).title()
+                amt = float(py.get("amount", 0))
+                sub = py.get("details", {}).get("subtype")
+                label = f"{meth} ({sub})" if sub else meth
+                p.text(f"  {label}: KSh {amt:.2f}\n")
+        else:
+            label = f"{payment_method}"
+            if payment_subtype:
+                label += f" ({payment_subtype})"
+            p.text(f"Paid via: {label}\n")
+
         p.set(align="center")
-        p.text("\nThank you!\n\n\n")
-        if self._backend != "dummy":
+        p.text("\nThank you for shopping!\n\n\n")
+        
+        if self._backend == "file":
+            # For the file backend, we attempt to save the buffer as readable text
+            from datetime import datetime
+            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self._save_to_log(f"=== RECEIPT {ts} ===\n" + p.output.decode('ascii', errors='ignore') + "\n====================\n")
+            p.clear() # Clear dummy buffer
+
+        if self._backend not in ["dummy", "file"]:
             p.cut()
 
 
@@ -123,6 +174,8 @@ def _create_printer_from_env() -> ESCPOSPrinter:
     """Build printer from env: PRINTER_BACKEND, PRINTER_* connection params."""
     from app.config import config
     backend = config("PRINTER_BACKEND", default="dummy").lower()
+    if backend == "file":
+        return ESCPOSPrinter(backend="file")
     if backend == "network":
         return ESCPOSPrinter(
             backend="network",

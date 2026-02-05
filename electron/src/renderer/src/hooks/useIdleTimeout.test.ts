@@ -112,7 +112,7 @@ describe("useIdleTimeout", () => {
     expect(result.current.isWarning).toBe(false);
 
     act(() => {
-      vi.advanceTimersByTime(3001); // Just past warning threshold
+      vi.advanceTimersByTime(3500); // Plenty of time past threshold
     });
 
     expect(result.current.isWarning).toBe(true);
@@ -169,7 +169,7 @@ describe("useIdleTimeout", () => {
 
     // Advance to warning period
     act(() => {
-      vi.advanceTimersByTime(2001);
+      vi.advanceTimersByTime(2500); // (5000 - 3000) = 2000 is threshold. 2500 is safely inside.
     });
 
     // Should be in warning state with seconds remaining

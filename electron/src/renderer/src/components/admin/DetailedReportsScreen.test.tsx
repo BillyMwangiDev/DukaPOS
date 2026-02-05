@@ -16,7 +16,7 @@ vi.mock("sonner", () => ({
 
 // Mock API URL helper
 vi.mock("@/lib/api", () => ({
-  apiUrl: (path: string) => `http://localhost:8000/${path}`,
+  apiUrl: (path: string) => `http://localhost:8000/${path.startsWith("/") ? path.slice(1) : path}`,
 }));
 
 const mockDetailedSalesResponse = {
@@ -82,21 +82,21 @@ describe("DetailedReportsScreen", () => {
 
   it("renders the component with title", async () => {
     render(<DetailedReportsScreen />);
-    
+
     expect(screen.getByText("Detailed Sales Report")).toBeInTheDocument();
     expect(screen.getByText(/Itemized breakdown/)).toBeInTheDocument();
   });
 
   it("displays period toggle buttons", async () => {
     render(<DetailedReportsScreen />);
-    
+
     expect(screen.getByText("Daily")).toBeInTheDocument();
     expect(screen.getByText("Monthly")).toBeInTheDocument();
   });
 
   it("fetches and displays summary data", async () => {
     render(<DetailedReportsScreen />);
-    
+
     await waitFor(() => {
       expect(screen.getByText("Total Sales")).toBeInTheDocument();
       expect(screen.getByText("Cash Total")).toBeInTheDocument();
@@ -107,7 +107,7 @@ describe("DetailedReportsScreen", () => {
 
   it("displays items table with correct headers", async () => {
     render(<DetailedReportsScreen />);
-    
+
     await waitFor(() => {
       expect(screen.getByText("Itemized Sales")).toBeInTheDocument();
     });
@@ -115,20 +115,20 @@ describe("DetailedReportsScreen", () => {
 
   it("has Export CSV button", async () => {
     render(<DetailedReportsScreen />);
-    
+
     expect(screen.getByText("Export CSV")).toBeInTheDocument();
   });
 
   it("has search input for filtering items", async () => {
     render(<DetailedReportsScreen />);
-    
+
     const searchInput = screen.getByPlaceholderText("Search items...");
     expect(searchInput).toBeInTheDocument();
   });
 
   it("calls API with correct parameters for daily report", async () => {
     render(<DetailedReportsScreen />);
-    
+
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalled();
       const callUrl = mockFetch.mock.calls[0][0];
@@ -139,10 +139,10 @@ describe("DetailedReportsScreen", () => {
 
   it("switches to monthly view when Monthly button clicked", async () => {
     render(<DetailedReportsScreen />);
-    
+
     const monthlyButton = screen.getByText("Monthly");
     fireEvent.click(monthlyButton);
-    
+
     await waitFor(() => {
       const calls = mockFetch.mock.calls;
       const lastCall = calls[calls.length - 1][0];
@@ -152,7 +152,7 @@ describe("DetailedReportsScreen", () => {
 
   it("has refresh button", async () => {
     render(<DetailedReportsScreen />);
-    
+
     // Wait for loading to finish
     await waitFor(() => {
       expect(screen.getByText("Refresh")).toBeInTheDocument();
@@ -161,7 +161,7 @@ describe("DetailedReportsScreen", () => {
 
   it("displays transaction count in summary", async () => {
     render(<DetailedReportsScreen />);
-    
+
     await waitFor(() => {
       expect(screen.getByText(/3 transactions/)).toBeInTheDocument();
     });
@@ -179,7 +179,7 @@ describe("DetailedReportsScreen - Data Display", () => {
 
   it("displays item names in the table", async () => {
     render(<DetailedReportsScreen />);
-    
+
     await waitFor(() => {
       expect(screen.getByText("Test Product A")).toBeInTheDocument();
       expect(screen.getByText("Test Product B")).toBeInTheDocument();
@@ -189,7 +189,7 @@ describe("DetailedReportsScreen - Data Display", () => {
 
   it("displays payment method badges", async () => {
     render(<DetailedReportsScreen />);
-    
+
     await waitFor(() => {
       // Should have Cash and M-Pesa badges
       expect(screen.getAllByText("Cash").length).toBeGreaterThan(0);
@@ -199,7 +199,7 @@ describe("DetailedReportsScreen - Data Display", () => {
 
   it("shows item count footer", async () => {
     render(<DetailedReportsScreen />);
-    
+
     await waitFor(() => {
       expect(screen.getByText(/Showing 3 of 3 items/)).toBeInTheDocument();
     });
@@ -217,14 +217,14 @@ describe("DetailedReportsScreen - Search Functionality", () => {
 
   it("filters items by search query", async () => {
     render(<DetailedReportsScreen />);
-    
+
     await waitFor(() => {
       expect(screen.getByText("Test Product A")).toBeInTheDocument();
     });
-    
+
     const searchInput = screen.getByPlaceholderText("Search items...");
     fireEvent.change(searchInput, { target: { value: "Product A" } });
-    
+
     await waitFor(() => {
       expect(screen.getByText("Test Product A")).toBeInTheDocument();
       expect(screen.queryByText("Test Product B")).not.toBeInTheDocument();
@@ -234,14 +234,14 @@ describe("DetailedReportsScreen - Search Functionality", () => {
 
   it("filters items by payment method", async () => {
     render(<DetailedReportsScreen />);
-    
+
     await waitFor(() => {
       expect(screen.getByText("Test Product A")).toBeInTheDocument();
     });
-    
+
     const searchInput = screen.getByPlaceholderText("Search items...");
     fireEvent.change(searchInput, { target: { value: "MPESA" } });
-    
+
     await waitFor(() => {
       expect(screen.getByText("Test Product C")).toBeInTheDocument();
       expect(screen.queryByText("Test Product A")).not.toBeInTheDocument();
@@ -267,9 +267,9 @@ describe("DetailedReportsScreen - Empty State", () => {
         items: [],
       }),
     });
-    
+
     render(<DetailedReportsScreen />);
-    
+
     await waitFor(() => {
       expect(screen.getByText("No items found for this period")).toBeInTheDocument();
     });
@@ -282,9 +282,9 @@ describe("DetailedReportsScreen - Error Handling", () => {
       ok: false,
       status: 500,
     });
-    
+
     render(<DetailedReportsScreen />);
-    
+
     // Component should still render without crashing
     await waitFor(() => {
       expect(screen.getByText("Detailed Sales Report")).toBeInTheDocument();

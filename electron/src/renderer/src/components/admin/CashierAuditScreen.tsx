@@ -136,7 +136,7 @@ export function CashierAuditScreen() {
   // Fetch report when cashier or dates change
   const fetchReport = useCallback(async () => {
     if (!selectedCashierId) return;
-    
+
     setLoading(true);
     try {
       const res = await fetch(
@@ -164,7 +164,7 @@ export function CashierAuditScreen() {
   // Export CSV
   const handleExportCsv = async () => {
     if (!selectedCashierId) return;
-    
+
     setExporting(true);
     try {
       const res = await fetch(
@@ -194,7 +194,7 @@ export function CashierAuditScreen() {
   const filteredItems = useMemo(() => {
     if (!report?.items) return [];
     if (!searchQuery.trim()) return report.items;
-    
+
     const q = searchQuery.toLowerCase();
     return report.items.filter(
       (item) =>
@@ -286,11 +286,12 @@ export function CashierAuditScreen() {
 
             {/* Date Range */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-1">
+              <Label htmlFor="startDate" className="flex items-center gap-1">
                 <Calendar className="size-4" />
                 Start Date
               </Label>
               <Input
+                id="startDate"
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
@@ -298,11 +299,12 @@ export function CashierAuditScreen() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="flex items-center gap-1">
+              <Label htmlFor="endDate" className="flex items-center gap-1">
                 <Calendar className="size-4" />
                 End Date
               </Label>
               <Input
+                id="endDate"
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
@@ -311,7 +313,7 @@ export function CashierAuditScreen() {
             </div>
 
             <Button onClick={fetchReport} disabled={loading || !selectedCashierId}>
-              {loading ? "Loading..." : "Refresh"}
+              {loading ? "Loading..." : "Search"}
             </Button>
           </div>
         </CardContent>

@@ -12,7 +12,7 @@ vi.mock("sonner", () => ({
 
 // Mock apiUrl
 vi.mock("@/lib/api", () => ({
-  apiUrl: (path: string) => `http://localhost:8000${path}`,
+  apiUrl: (path: string) => `http://localhost:8000/${path.startsWith("/") ? path.slice(1) : path}`,
 }));
 
 const mockCashiers = [

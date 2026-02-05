@@ -27,9 +27,9 @@ class ReceiptCreate(BaseModel):
     shift_id: Optional[int] = None
     customer_id: Optional[int] = None
     payment_type: str  # "CASH", "MOBILE", "CREDIT", or "SPLIT"
-    payment_subtype: Optional[str] = None # "M-Pesa", "Bank", etc.
-    reference_code: Optional[str] = None # Trans code for bank/m-pesa
-    payment_details_json: Optional[str] = None # Serialized split info
+    payment_subtype: Optional[str] = None  # "M-Pesa", "Bank", etc.
+    reference_code: Optional[str] = None  # Trans code for bank/m-pesa
+    payment_details_json: Optional[str] = None  # Serialized split info
     checkout_request_id: Optional[str] = None
     payment_status: str = "COMPLETED"
     origin_station: str = "POS-01"
@@ -52,7 +52,7 @@ class ReceiptRead(BaseModel):
 def create_receipt(data: ReceiptCreate):
     """Persist receipt and sale items."""
     p_type = (data.payment_type or "").upper()
-    
+
     # Validation for Credit
     if p_type == "CREDIT" and not data.customer_id:
         raise HTTPException(status_code=400, detail="customer_id required for CREDIT payment")
@@ -92,7 +92,7 @@ def create_receipt(data: ReceiptCreate):
         )
         session.add(receipt)
         session.flush()
-        
+
         for it in data.items:
             session.add(
                 SaleItem(
@@ -111,7 +111,7 @@ def create_receipt(data: ReceiptCreate):
                 # If quantity < 0 (return/refund), we add back to stock
                 product.stock_quantity = (product.stock_quantity or 0) - it.quantity
                 session.add(product)
-                
+
         # Handle account balance for credit payments
         if p_type == "CREDIT":
             delta = data.total_amount if not data.is_return else -data.total_amount
@@ -119,7 +119,7 @@ def create_receipt(data: ReceiptCreate):
             if customer:
                 customer.current_balance += delta
                 session.add(customer)
-        
+
         # If it's a split payment, check if it contains credit
         if p_type == "SPLIT" and data.payment_details_json:
             try:
@@ -132,9 +132,9 @@ def create_receipt(data: ReceiptCreate):
                         if customer:
                             customer.current_balance += delta
                             session.add(customer)
-            except:
+            except Exception:
                 pass
-                
+
         session.commit()
         session.refresh(receipt)
 
@@ -142,18 +142,21 @@ def create_receipt(data: ReceiptCreate):
         kra_url = config("KRA_SUBMISSION_URL", default="").strip()
         if kra_url:
             receipt_id_db = receipt.id
+
             def _submit_kra():
                 try:
                     # Note: this might need updating if build_vscu_payload expects Transaction
                     payload = build_vscu_payload_for_transaction(receipt_id_db)
-                    if payload is None: return
+                    if payload is None:
+                        return
                     body = json.dumps(payload).encode("utf-8")
                     req = urllib.request.Request(
                         kra_url, data=body,
                         headers={"Content-Type": "application/json"}, method="POST"
                     )
                     urllib.request.urlopen(req, timeout=10)
-                except: pass
+                except Exception:
+                    pass
             threading.Thread(target=_submit_kra, daemon=True).start()
 
         return receipt

@@ -91,7 +91,8 @@ def get_held_order(order_id: int, staff_id: int = Query(1)):
             raise HTTPException(status_code=403, detail="Not your held order")
         try:
             items = json.loads(held.items_json) if held.items_json else []
-        except: items = []
+        except Exception:
+            items = []
         return HeldOrderRead(
             id=held.id or 0,
             staff_id=held.staff_id,

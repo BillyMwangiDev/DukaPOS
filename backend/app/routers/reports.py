@@ -1,7 +1,7 @@
 from datetime import datetime, timezone, timedelta
 from io import StringIO, BytesIO
 from typing import Optional
-from fastapi import APIRouter, Query, Depends
+from fastapi import APIRouter, Query, Depends, HTTPException
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select, extract
@@ -126,16 +126,16 @@ def export_sales_excel(
     try:
         start = _parse_date(start_date)
         end = _parse_date(end_date)
-    except:
+    except Exception:
         start = datetime.now(timezone.utc) - timedelta(days=30)
         end = datetime.now(timezone.utc)
-    
+
     end = end.replace(hour=23, minute=59, second=59)
-    
+
     receipts = session.exec(
         select(Receipt).where(Receipt.timestamp >= start, Receipt.timestamp <= end)
     ).all()
-    
+
     data = []
     for r in receipts:
         data.append({
@@ -148,12 +148,12 @@ def export_sales_excel(
             "Station": r.origin_station,
             "Status": r.payment_status
         })
-    
+
     df = pd.DataFrame(data)
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Sales')
-    
+
     output.seek(0)
     filename = f"sales_report_{start_date}_to_{end_date}.xlsx"
     return StreamingResponse(
@@ -233,7 +233,6 @@ def export_inventory_csv(session: Session = Depends(get_session)):
     )
 
 
-
 # ============================================================================
 # Detailed Itemized Sales Report
 # ============================================================================
@@ -282,7 +281,7 @@ def get_detailed_sales(
             try:
                 year = int(date[:4])
                 month = int(date[5:7])
-            except:
+            except Exception:
                 now = datetime.now(timezone.utc)
                 year, month = now.year, now.month
 
@@ -297,7 +296,7 @@ def get_detailed_sales(
         else:
             try:
                 selected_date = datetime.strptime(date[:10], "%Y-%m-%d")
-            except:
+            except Exception:
                 selected_date = datetime.now(timezone.utc)
 
             start_day = selected_date.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -471,7 +470,7 @@ def get_staff_performance(
         try:
             start = datetime.strptime(start_date[:10], "%Y-%m-%d")
             end = datetime.strptime(end_date[:10], "%Y-%m-%d")
-        except:
+        except Exception:
             start = datetime.now(timezone.utc) - timedelta(days=7)
             end = datetime.now(timezone.utc)
 
@@ -599,13 +598,13 @@ def export_staff_performance_csv(
     buf = StringIO()
     buf.write(f"# Staff Performance: {report.staff_name}\n")
     buf.write(f"# Sales: {report.summary.total_sales}, Cash: {report.summary.total_cash}, Mobile: {report.summary.total_mobile}\n\n")
-    
+
     buf.write("# Shifts\n")
     buf.write("Shift ID,Opened At,Closed At,Expected Cash,Transactions\n")
     for s in report.shifts:
         buf.write(f"{s.shift_id},{s.opened_at},{s.closed_at or 'Open'},{s.expected_cash},{s.transaction_count}\n")
     buf.write("\n")
-    
+
     buf.write("# Items Sold\n")
     buf.write("Date,Time,Receipt ID,Item,Qty,Price,Type\n")
     for it in report.items:

@@ -4,7 +4,8 @@ import sys
 from sqlmodel import Session, create_engine, SQLModel, select
 from app.config import config
 
-from app.models import Staff, Receipt, SaleItem, Shift, InvoiceSequence, StoreSettings
+
+from app.models import Staff, InvoiceSequence, StoreSettings
 
 # When run as PyInstaller exe, Electron sets DATABASE_URL to userData/data/pos.db
 if getattr(sys, "frozen", False) and os.environ.get("DATABASE_URL"):
@@ -37,7 +38,7 @@ def _migrate_to_enterprise_schema() -> None:
     with engine.connect() as conn:
         insp = inspect(engine)
         tables = insp.get_table_names()
-        
+
         # 1. User -> Staff
         if "user" in tables and "staff" in tables:
             staff_count = conn.execute(text("SELECT count(*) FROM staff")).scalar()
@@ -54,9 +55,9 @@ def _migrate_to_enterprise_schema() -> None:
             if receipt_count == 0:
                 # Helper to generate receipt_id if missing
                 conn.execute(text("""
-                    INSERT INTO receipt (id, receipt_id, timestamp, shift_id, staff_id, customer_id, 
+                    INSERT INTO receipt (id, receipt_id, timestamp, shift_id, staff_id, customer_id,
                                         total_amount, payment_type, is_return, origin_station, payment_status)
-                    SELECT id, 'MIG-' || id, timestamp, shift_id, cashier_id, customer_id, 
+                    SELECT id, 'MIG-' || id, timestamp, shift_id, cashier_id, customer_id,
                            total_amount, payment_method, is_return, 'POS-01', payment_status FROM [transaction]
                 """))
                 conn.commit()
@@ -159,7 +160,7 @@ def _migrate_store_settings_columns() -> None:
             cols = [c["name"].lower() for c in insp.get_columns(table_name)]
         except Exception:
             return
-        
+
         updates = [
             ("auto_print_receipt", "1"),
             ("low_stock_warning_enabled", "1"),
@@ -169,7 +170,7 @@ def _migrate_store_settings_columns() -> None:
             ("staff_limit", "5"),
             ("master_ip", "'127.0.0.1'"),
         ]
-        
+
         for col, default in updates:
             if col not in cols:
                 try:
@@ -263,6 +264,8 @@ def _seed_store_settings() -> None:
                 low_stock_warning_enabled=True,
                 sound_enabled=True,
                 auto_backup_enabled=True,
+                master_ip="127.0.0.1",
+                staff_limit=5
             ))
             session.commit()
 
@@ -272,13 +275,13 @@ def get_next_receipt_id() -> str:
     with Session(engine) as session:
         settings = session.get(StoreSettings, 1)
         prefix = settings.station_id if settings else "POS-01"
-        
+
         row = session.exec(select(InvoiceSequence)).first()
         if not row:
             session.add(InvoiceSequence(last_number=1))
             session.commit()
             return f"{prefix}-00001"
-        
+
         next_num = row.last_number + 1
         row.last_number = next_num
         session.add(row)

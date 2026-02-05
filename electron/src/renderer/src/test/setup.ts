@@ -2,15 +2,15 @@ import "@testing-library/jest-dom";
 import { vi } from "vitest";
 
 // Mock ResizeObserver (required by Radix UI)
-global.ResizeObserver = class ResizeObserver {
+(globalThis as typeof globalThis & { ResizeObserver: typeof ResizeObserver }).ResizeObserver = class ResizeObserver {
   observe() { }
   unobserve() { }
   disconnect() { }
 };
 
 // Mock URL for CSV export
-global.URL.createObjectURL = vi.fn(() => "blob:mock-url");
-global.URL.revokeObjectURL = vi.fn();
+globalThis.URL.createObjectURL = vi.fn(() => "blob:mock-url") as typeof URL.createObjectURL;
+globalThis.URL.revokeObjectURL = vi.fn() as typeof URL.revokeObjectURL;
 
 // Mock scrollIntoView
 window.HTMLElement.prototype.scrollIntoView = vi.fn();

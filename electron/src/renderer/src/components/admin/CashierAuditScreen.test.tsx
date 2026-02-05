@@ -76,7 +76,7 @@ const mockCashierPerformanceResponse = {
 
 // Create a mock fetch function
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+globalThis.fetch = mockFetch as typeof fetch;
 
 describe("CashierAuditScreen", () => {
   beforeEach(() => {

@@ -4,7 +4,7 @@ import { DetailedReportsScreen } from "./DetailedReportsScreen";
 
 // Mock the API
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+globalThis.fetch = mockFetch as typeof fetch;
 
 // Mock toast
 vi.mock("sonner", () => ({

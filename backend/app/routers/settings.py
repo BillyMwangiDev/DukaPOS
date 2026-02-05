@@ -1,7 +1,7 @@
 """Store settings API: shop name, KRA PIN, M-Pesa Till, contact. Persisted in DB."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.database import engine
 from app.models import StoreSettings

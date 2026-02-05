@@ -3,7 +3,6 @@ WebSocket connection manager for real-time notifications.
 Broadcasts events to all connected POS terminals.
 """
 import asyncio
-import json
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from fastapi import WebSocket

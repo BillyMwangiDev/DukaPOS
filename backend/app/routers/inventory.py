@@ -1,6 +1,6 @@
 """Inventory bulk upload (Excel/CSV)."""
 import io
-from typing import List, Optional
+from typing import List
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from sqlmodel import Session, select
 import pandas as pd

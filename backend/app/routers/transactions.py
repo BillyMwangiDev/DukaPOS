@@ -7,7 +7,7 @@ from typing import List, Optional
 from app.config import config
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.database import engine, get_next_invoice_number
 from app.models import Transaction, TransactionItem, User, Customer, Product

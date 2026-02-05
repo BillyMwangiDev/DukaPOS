@@ -61,7 +61,7 @@ def print_receipt(payload: Optional[ReceiptPayload] = Body(None)):
     try:
         future.result(timeout=TIMEOUT_SEC)
         return {"ok": True, "status": "ok"}
-    except (Exception, concurrent.futures.TimeoutError):
+    except (Exception, FuturesTimeoutError):
         return {"ok": False, "status": "error", "warning": PRINTER_OFFLINE}
 
 
@@ -72,5 +72,5 @@ def kick_drawer():
     try:
         future.result(timeout=TIMEOUT_SEC)
         return KickDrawerResponse(ok=True)
-    except (Exception, concurrent.futures.TimeoutError):
+    except (Exception, FuturesTimeoutError):
         return KickDrawerResponse(ok=False, status="error", warning=PRINTER_OFFLINE)

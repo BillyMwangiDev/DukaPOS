@@ -118,7 +118,7 @@ def login(body: LoginRequest, session: Session = Depends(get_session)):
 @router.post("/verify-admin-pin", response_model=VerifyAdminPinResponse)
 def verify_admin_pin(body: VerifyAdminPinRequest, session: Session = Depends(get_session)):
     """Verify that the given PIN belongs to an active admin. Used for Close Shift / Z-Report."""
-    admins = session.exec(select(User).where(User.role == "admin", User.is_active == True)).all()
+    admins = session.exec(select(User).where(User.role == "admin", User.is_active)).all()
     for admin in admins:
         if verify_pin(body.pin, admin.pin_hash or ""):
             return VerifyAdminPinResponse(ok=True)

@@ -1,5 +1,4 @@
 """M-Pesa Daraja: STK Push, callback webhook, C2B confirmation with automatic WebSocket notification."""
-import asyncio
 import json
 from datetime import datetime, timedelta
 from typing import Optional
@@ -111,8 +110,8 @@ async def mpesa_stk_callback(request: Request):
     except Exception:
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
     result_code = _extract_stk_callback_result_code(body)
+
     checkout_id = _extract_checkout_request_id(body)
-    
     if result_code == 0 and checkout_id:
         receipt = _extract_mpesa_receipt_number(body) or ""
         tx_amount = 0.0
@@ -271,7 +270,6 @@ def register_c2b_urls(data: C2BRegisterRequest):
     """
     Register C2B Validation and Confirmation URLs with Daraja.
     Call once to set up webhooks for Buy Goods / Paybill payments.
-    
     After registration, when a customer pays to your Till/Paybill:
     1. Safaricom calls your validation_url (optional validation logic)
     2. Safaricom calls your confirmation_url with payment details
@@ -328,10 +326,6 @@ async def mpesa_c2b_validation(request: Request):
         body = await request.json()
     except Exception:
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
-    
-    # Log the validation request for debugging
-    trans_amount = body.get("TransAmount", 0)
-    bill_ref = body.get("BillRefNumber", "")
     
     # Accept all payments by default
     # You can add custom validation logic here (e.g., check bill reference, amount limits)

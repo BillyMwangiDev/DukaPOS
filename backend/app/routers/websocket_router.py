@@ -2,10 +2,8 @@
 WebSocket endpoint for real-time POS notifications.
 Clients connect to /ws/{client_id} to receive broadcasts.
 """
-import asyncio
 import uuid
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
-from typing import Optional
 
 from app.websocket_manager import (
     manager,
@@ -71,7 +69,7 @@ async def websocket_endpoint(
                 
     except WebSocketDisconnect:
         await manager.disconnect(client_id)
-    except Exception as e:
+    except Exception:
         await manager.disconnect(client_id)
 
 

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select, extract
 
 from app.database import engine
-from app.models import Transaction, TransactionItem, Product
+from app.models import Transaction, TransactionItem, Product, User, Shift
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -330,11 +330,8 @@ def export_detailed_sales_csv(
     )
 
 
-# ============================================================================
 # Cashier Performance / Accountability Report
 # ============================================================================
-
-from app.models import User, Shift
 
 
 class CashierSaleItem(BaseModel):
@@ -389,7 +386,6 @@ class CashierPerformanceResponse(BaseModel):
     items: list[CashierSaleItem]
 
 
-@router.get("/cashier-performance", response_model=CashierPerformanceResponse)
 def get_cashier_performance(
     cashier_id: int = Query(..., description="Cashier user ID"),
     start_date: str = Query(..., description="YYYY-MM-DD start date"),
@@ -594,7 +590,7 @@ def list_cashiers():
     """List all active cashiers for the audit dropdown."""
     with Session(engine) as session:
         users = session.exec(
-            select(User).where(User.is_active == True)
+            select(User).where(User.is_active)
         ).all()
         return [
             {"id": u.id, "username": u.username, "role": u.role}

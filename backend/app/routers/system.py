@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from app.config import config
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.database import engine
 from app.models import StoreSettings

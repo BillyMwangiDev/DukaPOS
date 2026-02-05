@@ -2,7 +2,7 @@
 from typing import Optional
 from fastapi import APIRouter, Body, HTTPException
 from pydantic import BaseModel
-from sqlmodel import Session, select, func
+from sqlmodel import Session, select
 
 from app.database import engine
 from app.models import Shift, Transaction, User

@@ -4,7 +4,6 @@ Env: CONSUMER_KEY, CONSUMER_SECRET. Optional: DARAJA_BASE_URL (sandbox/productio
 """
 import base64
 import json
-import uuid
 from datetime import datetime
 from typing import Optional
 from urllib.request import Request, urlopen

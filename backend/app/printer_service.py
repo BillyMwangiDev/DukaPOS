@@ -147,5 +147,4 @@ def _create_printer_from_env() -> ESCPOSPrinter:
 
 def run_in_printer_thread(fn: Any, *args: Any, **kwargs: Any) -> Any:
     """Run print/kick in a worker thread. Returns a Future so caller can wait with timeout."""
-    import concurrent.futures
     return _get_executor().submit(fn, *args, **kwargs)

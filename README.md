@@ -1,12 +1,16 @@
 # DukaPOS: Enterprise-Grade POS for Retail
+DukaPOS is a high-availability, offline-first Point of Sale (POS) ecosystem designed to streamline retail operations. It combines the performance of a FastAPI backend with the flexibility of a React-based Electron shell to provide a seamless checkout experience.
+
 <img width="1910" height="984" alt="Screenshot 2026-02-05 123712" src="https://github.com/user-attachments/assets/87f601b3-3e60-4f72-a914-e7502e12ed57" />
+
 <img width="972" height="657" alt="Screenshot 2026-02-05 123722" src="https://github.com/user-attachments/assets/bf4ddbd9-4921-4f57-be2b-41a93e2950ac" />
+
 
 <img width="1906" height="990" alt="Screenshot 2026-02-05 123752" src="https://github.com/user-attachments/assets/9e2c7440-f9ca-4351-b7ab-fe38e083169b" />
 
 <img width="1906" height="1000" alt="Screenshot 2026-02-05 123806" src="https://github.com/user-attachments/assets/43902ebb-cdca-4617-a91e-d68523dc7137" />
 
-DukaPOS is a high-availability, offline-first Point of Sale (POS) ecosystem designed to streamline retail operations. It combines the performance of a FastAPI backend with the flexibility of a React-based Electron shell to provide a seamless checkout experience.
+
 
 ## System Architecture
 

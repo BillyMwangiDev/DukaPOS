@@ -1,0 +1,308 @@
+{
+  "tech_stack": [
+    "TypeScript",
+    "React 18",
+    "Vite",
+    "TailwindCSS",
+    "Zustand (state)",
+    "shadcn/ui components",
+    "Electron (shell)",
+    "FastAPI backend (API)"
+  ],
+  "features": [
+    {
+      "name": "LoginScreen",
+      "description": "User login with username/password. Stores session in localStorage. POST /users/login.",
+      "files": ["electron/src/renderer/src/components/LoginScreen.tsx"],
+      "selectors": {
+        "username_input": "input[name='username'] or aria-label='Username'",
+        "password_input": "input[type='password']",
+        "login_button": "button containing 'Login' or 'Sign In'"
+      }
+    },
+    {
+      "name": "Header",
+      "description": "Top bar with logo, barcode/search input (F2), online status, printer status, dark mode toggle, user info, logout.",
+      "files": ["electron/src/renderer/src/components/Header.tsx"],
+      "selectors": {
+        "search_input": "input placeholder contains 'barcode' or 'search'",
+        "logout_button": "button with LogOut icon"
+      }
+    },
+    {
+      "name": "CartSection",
+      "description": "Displays cart items in a table. Quantity +/- buttons, remove, return mode (red theme).",
+      "files": ["electron/src/renderer/src/components/CartSection.tsx"],
+      "selectors": {
+        "cart_table": "table with product rows",
+        "quantity_input": "input type number per row",
+        "remove_button": "button with Trash icon per row"
+      }
+    },
+    {
+      "name": "CommandCenter",
+      "description": "Right sidebar with totals (subtotal, VAT, total), numpad, payment buttons (Cash, M-Pesa, Credit), Hold Order button.",
+      "files": ["electron/src/renderer/src/components/CommandCenter.tsx"],
+      "selectors": {
+        "cash_button": "button containing 'Cash'",
+        "mpesa_button": "button containing 'M-Pesa'",
+        "credit_button": "button containing 'Credit'",
+        "hold_order_button": "button containing 'Hold Order'",
+        "numpad_buttons": "button with digits 0-9, C, ."
+      }
+    },
+    {
+      "name": "PaymentModal",
+      "description": "Payment dialog with tabs: Cash (tendered, change), M-Pesa (STK Push, manual code), Credit (customer search). Completes sale.",
+      "files": ["electron/src/renderer/src/components/PaymentModal.tsx"],
+      "selectors": {
+        "cash_tab": "tab or button 'Cash'",
+        "mpesa_tab": "tab or button 'M-Pesa'",
+        "credit_tab": "tab or button 'Credit'",
+        "amount_input": "input for tendered amount",
+        "complete_button": "button 'Complete Sale' or 'Pay'"
+      }
+    },
+    {
+      "name": "OpenShiftModal",
+      "description": "Dialog to open a shift. Input for opening float. POST /shifts/open.",
+      "files": ["electron/src/renderer/src/components/OpenShiftModal.tsx"],
+      "selectors": {
+        "float_input": "input for opening float",
+        "open_button": "button 'Open Shift'"
+      }
+    },
+    {
+      "name": "CloseShiftModal",
+      "description": "Dialog to close shift. Shows Z-Report summary. Input for closing cash. POST /shifts/{id}/close.",
+      "files": ["electron/src/renderer/src/components/CloseShiftModal.tsx"],
+      "selectors": {
+        "closing_cash_input": "input for actual closing cash",
+        "close_button": "button 'Close Shift'"
+      }
+    },
+    {
+      "name": "PinPadModal",
+      "description": "PIN entry modal for admin actions (close shift, out-of-stock override). 4-6 digit PIN.",
+      "files": ["electron/src/renderer/src/components/PinPadModal.tsx"],
+      "selectors": {
+        "pin_buttons": "buttons 0-9",
+        "submit_button": "button 'Submit' or 'Confirm'"
+      }
+    },
+    {
+      "name": "HeldOrdersDialog",
+      "description": "Lists held orders for current cashier. Restore to cart or discard.",
+      "files": ["electron/src/renderer/src/components/HeldOrdersDialog.tsx"],
+      "selectors": {
+        "order_list": "list or table of held orders",
+        "restore_button": "button 'Restore'",
+        "discard_button": "button 'Discard' or 'Delete'"
+      }
+    },
+    {
+      "name": "AdminDashboard",
+      "description": "Container for admin sections. Sidebar navigation. Role-based menu.",
+      "files": ["electron/src/renderer/src/components/admin/AdminDashboard.tsx", "electron/src/renderer/src/components/admin/AdminSidebar.tsx"],
+      "selectors": {
+        "sidebar_nav": "nav with admin menu items",
+        "dashboard_link": "link or button 'Dashboard'",
+        "inventory_link": "link or button 'Inventory'",
+        "customers_link": "link or button 'Customers'",
+        "users_link": "link or button 'Users'",
+        "reports_link": "link or button 'Reports'",
+        "settings_link": "link or button 'Settings'"
+      }
+    },
+    {
+      "name": "DashboardScreen",
+      "description": "Daily dashboard: revenue cards, low stock alerts, Z-Report generation, backup actions.",
+      "files": ["electron/src/renderer/src/components/admin/DashboardScreen.tsx"],
+      "selectors": {
+        "revenue_card": "card with today's revenue",
+        "low_stock_list": "list of low stock products",
+        "backup_button": "button 'Backup' or 'Create Backup'"
+      }
+    },
+    {
+      "name": "InventoryManagerScreen",
+      "description": "Product management: CRUD, search, stock levels, bulk import (Excel/CSV). Read-only for cashiers.",
+      "files": ["electron/src/renderer/src/components/admin/InventoryManagerScreen.tsx"],
+      "selectors": {
+        "product_table": "table of products",
+        "add_product_button": "button 'Add Product'",
+        "import_button": "button 'Import' or 'Upload'",
+        "search_input": "input placeholder 'Search products'"
+      }
+    },
+    {
+      "name": "CustomerManagementScreen",
+      "description": "Customer/debtor management: add/edit, search, record payments, debt limits.",
+      "files": ["electron/src/renderer/src/components/admin/CustomerManagementScreen.tsx"],
+      "selectors": {
+        "customer_table": "table of customers",
+        "add_customer_button": "button 'Add Customer'",
+        "payment_button": "button 'Record Payment'"
+      }
+    },
+    {
+      "name": "UserManagementScreen",
+      "description": "User/staff management: create users, assign roles (admin/cashier), set PINs, activate/deactivate.",
+      "files": ["electron/src/renderer/src/components/admin/UserManagementScreen.tsx"],
+      "selectors": {
+        "user_table": "table of users",
+        "add_user_button": "button 'Add User'",
+        "role_select": "select for role (admin/cashier)"
+      }
+    },
+    {
+      "name": "SalesReportsScreen",
+      "description": "Sales reports with date range, revenue charts, payment method breakdown, CSV export.",
+      "files": ["electron/src/renderer/src/components/admin/SalesReportsScreen.tsx"],
+      "selectors": {
+        "date_from": "input for start date",
+        "date_to": "input for end date",
+        "export_button": "button 'Export CSV'"
+      }
+    },
+    {
+      "name": "TaxEtimsScreen",
+      "description": "KRA eTIMS export: date range selection, CSV export for tax compliance.",
+      "files": ["electron/src/renderer/src/components/admin/TaxEtimsScreen.tsx"],
+      "selectors": {
+        "date_from": "input for start date",
+        "date_to": "input for end date",
+        "export_button": "button 'Export eTIMS CSV'"
+      }
+    },
+    {
+      "name": "SettingsView",
+      "description": "Settings screen: shop info, general settings (auto-print, sound, low stock), backups, connection mode (Host/Client), eTIMS toggle.",
+      "files": ["electron/src/renderer/src/components/SettingsView.tsx"],
+      "selectors": {
+        "shop_name_input": "input for shop name",
+        "auto_print_toggle": "checkbox or switch aria-checked for auto-print",
+        "sound_toggle": "checkbox or switch for sound",
+        "save_button": "button 'Save'"
+      }
+    },
+    {
+      "name": "useCart",
+      "description": "Zustand cart store: items, return mode, quantity override. Actions: addItem, updateQuantity, removeItem, clearCart, replaceCart. useCartTotals() for VAT-inclusive totals.",
+      "files": ["electron/src/renderer/src/hooks/useCart.ts"]
+    },
+    {
+      "name": "API utilities",
+      "description": "apiUrl() for API calls; getApiBaseUrl/setConnectionMode for Host/Client mode; getEtimsEnabled/setEtimsEnabled.",
+      "files": ["electron/src/renderer/src/lib/api.ts"]
+    },
+    {
+      "name": "Formatting",
+      "description": "formatKsh() for Kenyan Shilling display (Ksh 1,200.00).",
+      "files": ["electron/src/renderer/src/lib/format.ts"]
+    },
+    {
+      "name": "VAT calculations",
+      "description": "grossToNet(), grossToTax(), netToGross() for Kenya 16% VAT.",
+      "files": ["electron/src/renderer/src/lib/vat.ts"]
+    },
+    {
+      "name": "Sound effects",
+      "description": "playBeep() for scans, playSaleBeep() for completed sales. Web Audio API.",
+      "files": ["electron/src/renderer/src/lib/sound.ts"]
+    }
+  ],
+  "ui_flows": [
+    {
+      "name": "Login",
+      "steps": [
+        "Navigate to app (http://localhost:5173)",
+        "Enter username in username input",
+        "Enter password in password input",
+        "Click Login button",
+        "Wait for redirect to POS checkout view"
+      ],
+      "test_credentials": {
+        "admin": {"username": "admin", "password": "admin123"},
+        "cashier": {"username": "cashier", "password": "cashier123"}
+      }
+    },
+    {
+      "name": "Add product to cart",
+      "steps": [
+        "Focus search/barcode input (F2)",
+        "Type barcode or product name",
+        "Press Enter or select from dropdown",
+        "Product appears in cart"
+      ]
+    },
+    {
+      "name": "Complete cash sale",
+      "steps": [
+        "Add products to cart",
+        "Click Cash button in CommandCenter",
+        "PaymentModal opens",
+        "Enter tendered amount",
+        "Click Complete Sale",
+        "Cart clears, receipt prints (if enabled)"
+      ]
+    },
+    {
+      "name": "Open shift",
+      "steps": [
+        "Click Open Shift button",
+        "OpenShiftModal opens",
+        "Enter opening float",
+        "Click Open Shift",
+        "Shift ID displayed in header"
+      ]
+    },
+    {
+      "name": "Close shift",
+      "steps": [
+        "Click Close Shift button",
+        "PinPadModal opens (admin PIN required)",
+        "Enter admin PIN (0000)",
+        "CloseShiftModal opens with Z-Report",
+        "Enter closing cash amount",
+        "Click Close Shift"
+      ]
+    },
+    {
+      "name": "Hold and restore order",
+      "steps": [
+        "Add products to cart",
+        "Click Hold Order button",
+        "Cart saved, cart clears",
+        "Click Held Orders button",
+        "HeldOrdersDialog opens",
+        "Click Restore on an order",
+        "Cart restored"
+      ]
+    },
+    {
+      "name": "Admin: add product",
+      "steps": [
+        "Navigate to Admin > Inventory",
+        "Click Add Product button",
+        "Fill product form (name, barcode, prices, stock)",
+        "Click Save",
+        "Product appears in list"
+      ]
+    },
+    {
+      "name": "Admin: add customer",
+      "steps": [
+        "Navigate to Admin > Customers",
+        "Click Add Customer button",
+        "Fill customer form (name, phone, debt limit)",
+        "Click Save",
+        "Customer appears in list"
+      ]
+    }
+  ],
+  "ports": {
+    "frontend": 5173,
+    "backend": 8000
+  }
+}

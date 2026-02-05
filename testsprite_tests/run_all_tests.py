@@ -22,6 +22,9 @@ ALL_TESTS = [
     "TC008_inventory_upload_should_accept_excel_and_csv_files.py",
     "TC009_print_receipt_and_kick_drawer_should_trigger_printing_actions.py",
     "TC010_store_settings_should_be_retrieved_and_updated.py",
+    "TC011_add_product_inventory_should_create_new_product.py",
+    "TC012_detailed_sales_report_should_return_itemized_data.py",
+    "TC013_cashier_performance_report_should_track_accountability.py",
 ]
 
 # Map TC001 -> TC001_*.py, etc.

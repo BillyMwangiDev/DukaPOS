@@ -1,0 +1,57 @@
+{
+  "product_name": "DukaPOS",
+  "version": "1.0",
+  "overview": "Offline-first Point of Sale for small businesses in Kenya. FastAPI backend with SQLite, products CRUD, transactions (cash/M-Pesa/credit), shifts, customers (credit), held orders, inventory upload, print/kick-drawer, settings, system backup, tax/eTIMS export, reports, dashboard, users (login, admin PIN).",
+  "goals": [
+    "Offline-first; M-Pesa manual code when offline",
+    "Kenyan retail: KES, VAT 16% inclusive, M-Pesa, shifts, credit",
+    "On-premise: single PC or LAN (Host + Clients)",
+    "No dev tools for end users (installer)"
+  ],
+  "tech_stack": {
+    "backend": "FastAPI, Python 3.11, SQLModel, SQLite, uvicorn",
+    "frontend": "React, Vite, TypeScript, Tailwind, Shadcn/UI",
+    "shell": "Electron"
+  },
+  "api_requirements": {
+    "base_url": "http://localhost:8000",
+    "authentication": "None by default; optional API_KEY (X-API-Key or Bearer)",
+    "endpoints": [
+      "GET /health - Health check",
+      "GET/POST/PATCH/DELETE /products - Products CRUD",
+      "GET /products/barcode/{barcode} - Get product by barcode",
+      "POST /transactions - Create transaction (cashier_id, shift_id, customer_id, payment_method, items)",
+      "POST /shifts/open, GET /shifts/current, GET /shifts/{id}/z-report, POST /shifts/{id}/close",
+      "GET/POST/PATCH /customers, POST /customers/{id}/payment",
+      "POST /orders/hold, GET /orders/held, GET/DELETE /orders/held/{id}",
+      "POST /inventory/upload - Excel/CSV upload",
+      "POST /print/receipt, POST /print/kick-drawer",
+      "GET/PUT /settings/store",
+      "POST /system/backup, GET /system/backups, GET /system/backups/download/{filename}",
+      "GET /dashboard/summary",
+      "GET /reports/sales, GET /reports/export",
+      "GET /tax/etims-csv, GET /tax/vscu-payload",
+      "GET /users, POST /users, PUT /users/{id}, POST /users/login, POST /users/verify-admin-pin",
+      "POST /mpesa/stk-push, POST /mpesa/callback, POST /mpesa/verify-manual, GET /mpesa/transaction-status",
+      "GET /payments/verify/{checkout_id}"
+    ]
+  },
+  "features": [
+    "Health check",
+    "Products CRUD and barcode lookup",
+    "Users CRUD, login, verify admin PIN",
+    "Transactions (create sale with items, shift_id, customer_id, payment_method; stock deduction)",
+    "Shifts: open, current, z-report, close",
+    "Customers CRUD and record payment",
+    "Held orders: hold, list, get, delete",
+    "Inventory upload (Excel/CSV)",
+    "Print receipt and kick drawer",
+    "Store settings",
+    "System backup, list, download",
+    "Dashboard summary",
+    "Sales reports and CSV export",
+    "Tax eTIMS CSV and VSCU payload",
+    "M-Pesa STK push, callback, verify-manual, transaction-status",
+    "Payments verify"
+  ]
+}

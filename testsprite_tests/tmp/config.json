@@ -1,0 +1,16 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:5173/.",
+  "executionArgs": {
+    "projectName": "DukaPOS",
+    "projectPath": "c:\\Users\\USER\\Desktop\\PROJECTS\\DukaPOS",
+    "testIds": [],
+    "additionalInstruction": "This is a FRONTEND UI test. The app is a React Electron POS application running at http://localhost:5173. Test credentials: username 'admin' password 'admin123'. Focus on UI/E2E testing: 1) Login screen - test login with valid credentials, 2) Inventory page - verify products table displays and Add Product button works for admin, 3) Checkout flow - add items to cart and complete a sale. Use browser automation to interact with the UI, not API calls.",
+    "envs": {
+      "API_KEY": "sk-user-6Q8DtKABXclAZTnAL9AtsKY1u5UmsbaUwcI-TVR37kpUv1EMMQ414-ub_zyshlCYK23J6AfhuC37wj8UO3Pd9F_4TXGnISXC6qNQzimnbV1vaLUfl_EGhfYLBjcVmfWUnVo"
+    }
+  },
+  "proxy": "http://46ea10b3-58a9-4605-a23c-a3531ed6bb70:U9SjyS4mJsDaiXt5cPFHzV8VMTvnxw7X@tun.testsprite.com:8080"
+}

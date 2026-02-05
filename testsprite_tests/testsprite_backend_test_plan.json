@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "get_health_endpoint_should_return_status_ok",
+    "description": "Test the GET /health endpoint to ensure it returns a successful status indicating the system is healthy."
+  },
+  {
+    "id": "TC002",
+    "title": "products_crud_operations_should_work_correctly",
+    "description": "Test the GET, POST, PATCH, DELETE /products endpoints to verify products can be created, retrieved, updated, and deleted correctly."
+  },
+  {
+    "id": "TC003",
+    "title": "get_product_by_barcode_should_return_correct_product",
+    "description": "Test the GET /products/barcode/{barcode} endpoint to ensure it returns the correct product details for a given barcode."
+  },
+  {
+    "id": "TC004",
+    "title": "create_transaction_should_record_sale_and_deduct_stock",
+    "description": "Test the POST /transactions endpoint to verify that a transaction can be created with cashier_id, shift_id, customer_id, payment_method, and items, and that stock is deducted accordingly."
+  },
+  {
+    "id": "TC005",
+    "title": "shifts_management_should_handle_open_current_zreport_and_close",
+    "description": "Test the POST /shifts/open, GET /shifts/current, GET /shifts/{id}/z-report, and POST /shifts/{id}/close endpoints to ensure shifts can be opened, retrieved, reported, and closed properly."
+  },
+  {
+    "id": "TC006",
+    "title": "customers_crud_and_payment_recording_should_work",
+    "description": "Test the GET, POST, PATCH /customers and POST /customers/{id}/payment endpoints to verify customer records can be managed and payments recorded correctly."
+  },
+  {
+    "id": "TC007",
+    "title": "held_orders_should_be_held_listed_retrieved_and_deleted",
+    "description": "Test the POST /orders/hold, GET /orders/held, GET /orders/held/{id}, and DELETE /orders/held/{id} endpoints to ensure held orders can be created, listed, retrieved, and deleted."
+  },
+  {
+    "id": "TC008",
+    "title": "inventory_upload_should_accept_excel_and_csv_files",
+    "description": "Test the POST /inventory/upload endpoint to verify that inventory data can be uploaded via Excel or CSV files successfully."
+  },
+  {
+    "id": "TC009",
+    "title": "print_receipt_and_kick_drawer_should_trigger_printing_actions",
+    "description": "Test the POST /print/receipt and POST /print/kick-drawer endpoints to ensure printing of receipts and drawer kick actions are triggered correctly."
+  },
+  {
+    "id": "TC010",
+    "title": "store_settings_should_be_retrieved_and_updated",
+    "description": "Test the GET and PUT /settings/store endpoints to verify store settings can be retrieved and updated as expected."
+  }
+]

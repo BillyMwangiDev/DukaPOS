@@ -1,0 +1,252 @@
+{
+  "tech_stack": [
+    "Python 3.11",
+    "FastAPI",
+    "SQLModel (SQLAlchemy + Pydantic)",
+    "SQLite",
+    "uvicorn",
+    "python-escpos",
+    "pandas",
+    "bcrypt (passlib)",
+    "React 18",
+    "TypeScript",
+    "Vite",
+    "TailwindCSS",
+    "Shadcn/UI",
+    "Electron"
+  ],
+  "features": [
+    {
+      "name": "Health",
+      "description": "Health check endpoint for backend availability.",
+      "files": ["backend/main.py"],
+      "api_doc": {
+        "paths": {
+          "/health": {
+            "get": {
+              "summary": "Health check",
+              "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string" } } } } } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Products",
+      "description": "Products CRUD: list, get by id/barcode, create, update, delete.",
+      "files": ["backend/app/routers/products.py"],
+      "api_doc": {
+        "paths": {
+          "/products": {
+            "get": { "summary": "List products", "parameters": [{ "name": "q", "in": "query", "schema": { "type": "string" } }], "responses": { "200": { "description": "List of products" } } },
+            "post": { "summary": "Create product", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "name": {}, "barcode": {}, "price_buying": {}, "price_selling": {}, "stock_quantity": {} } } } } }, "responses": { "201": { "description": "Created" } } }
+          },
+          "/products/barcode/{barcode}": { "get": { "summary": "Get product by barcode", "parameters": [{ "name": "barcode", "in": "path", "required": true }], "responses": { "200": { "description": "Product" } } } },
+          "/products/{product_id}": {
+            "get": { "summary": "Get product by id", "responses": { "200": { "description": "Product" } } },
+            "patch": { "summary": "Update product", "responses": { "200": { "description": "Updated product" } } },
+            "delete": { "summary": "Delete product", "responses": { "204": { "description": "No content" } } }
+          }
+        }
+      }
+    },
+    {
+      "name": "Users",
+      "description": "Users CRUD, login, verify admin PIN for Close Shift.",
+      "files": ["backend/app/routers/users.py"],
+      "api_doc": {
+        "paths": {
+          "/users": {
+            "get": { "summary": "List users", "responses": { "200": { "description": "List of users" } } },
+            "post": { "summary": "Create user", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "username": {}, "password": {}, "role": {}, "pin": {} } } } } }, "responses": { "200": { "description": "User" } } }
+          },
+          "/users/{user_id}": { "put": { "summary": "Update user", "responses": { "200": { "description": "Updated user" } } }, "delete": { "summary": "Delete user", "responses": { "204": { "description": "No content" } } } },
+          "/users/login": { "post": { "summary": "Login", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "username": {}, "password": {} } } } } }, "responses": { "200": { "description": "User with session" } } } },
+          "/users/verify-admin-pin": { "post": { "summary": "Verify admin PIN", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "pin": {} } } } } }, "responses": { "200": { "description": "ok" } } } }
+        }
+      }
+    },
+    {
+      "name": "Transactions",
+      "description": "Create sale transaction (cash/M-Pesa/credit), items, shift_id, customer_id, stock deduction.",
+      "files": ["backend/app/routers/transactions.py"],
+      "api_doc": {
+        "paths": {
+          "/transactions": {
+            "post": {
+              "summary": "Create transaction",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "cashier_id": {},
+                        "shift_id": {},
+                        "customer_id": {},
+                        "payment_method": {},
+                        "mpesa_code": {},
+                        "total_amount": {},
+                        "is_return": {},
+                        "items": { "type": "array", "items": { "type": "object", "properties": { "product_id": {}, "quantity": {}, "price_at_moment": {} } } }
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": { "201": { "description": "Created transaction" } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Shifts",
+      "description": "Open shift (float), get current shift, Z-Report, close shift.",
+      "files": ["backend/app/routers/shifts.py"],
+      "api_doc": {
+        "paths": {
+          "/shifts/open": { "post": { "summary": "Open shift", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "cashier_id": {}, "opening_float": {} } } } } }, "responses": { "201": { "description": "Opened shift" } } } },
+          "/shifts/current": { "get": { "summary": "Get current shift", "parameters": [{ "name": "cashier_id", "in": "query" }], "responses": { "200": { "description": "Current shift or null" } } } },
+          "/shifts/{shift_id}/z-report": { "get": { "summary": "Get Z-Report", "responses": { "200": { "description": "Z-Report" } } } },
+          "/shifts/{shift_id}/close": { "post": { "summary": "Close shift", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "closing_actual": {}, "admin_pin": {} } } } } }, "responses": { "200": { "description": "Z-Report" } } } }
+        }
+      }
+    },
+    {
+      "name": "Customers",
+      "description": "Customers (credit) CRUD, record payment.",
+      "files": ["backend/app/routers/customers.py"],
+      "api_doc": {
+        "paths": {
+          "/customers": {
+            "get": { "summary": "List customers", "parameters": [{ "name": "q", "in": "query" }], "responses": { "200": { "description": "List" } } },
+            "post": { "summary": "Create customer", "responses": { "201": { "description": "Created" } } }
+          },
+          "/customers/{customer_id}": { "get": {}, "patch": {}, "delete": { "summary": "Delete customer", "responses": { "204": { "description": "No content" } } } },
+          "/customers/{customer_id}/payment": { "post": { "parameters": [{ "name": "amount", "in": "query" }], "responses": { "200": { "description": "Updated balance" } } } }
+        }
+      }
+    },
+    {
+      "name": "Orders (Held)",
+      "description": "Hold order, list held orders, get one, delete.",
+      "files": ["backend/app/routers/orders.py"],
+      "api_doc": {
+        "paths": {
+          "/orders/hold": { "post": { "summary": "Hold order", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "cashier_id": {}, "cart": {} } } } } }, "responses": { "201": { "description": "Held order id" } } } },
+          "/orders/held": { "get": { "parameters": [{ "name": "cashier_id", "in": "query" }], "responses": { "200": { "description": "List of held orders" } } } },
+          "/orders/held/{order_id}": { "get": {}, "delete": { "responses": { "204": {} } } }
+        }
+      }
+    },
+    {
+      "name": "Inventory",
+      "description": "Upload Excel/CSV for products (upsert by barcode).",
+      "files": ["backend/app/routers/inventory.py"],
+      "api_doc": {
+        "paths": {
+          "/inventory/upload": { "post": { "summary": "Upload Excel/CSV", "requestBody": { "content": { "multipart/form-data": { "schema": { "type": "object", "properties": { "file": { "type": "string", "format": "binary" } } } } }, "responses": { "200": { "description": "Upload result" } } } }
+        }
+      }
+    },
+    {
+      "name": "Print",
+      "description": "Print receipt, kick cash drawer.",
+      "files": ["backend/app/routers/print_router.py", "backend/app/printer_service.py"],
+      "api_doc": {
+        "paths": {
+          "/print/receipt": { "post": { "summary": "Print receipt", "requestBody": { "content": { "application/json": { "schema": { "type": "object" } } } }, "responses": { "200": {}, "503": { "description": "PRINTER_OFFLINE" } } } },
+          "/print/kick-drawer": { "post": { "summary": "Kick cash drawer", "responses": { "200": {} } } }
+        }
+      }
+    },
+    {
+      "name": "Hardware",
+      "description": "Kick drawer (hardware route).",
+      "files": ["backend/app/routers/hardware.py"],
+      "api_doc": {
+        "paths": {
+          "/hardware/kick-drawer": { "post": { "summary": "Kick drawer", "responses": { "200": {} } } }
+        }
+      }
+    },
+    {
+      "name": "Settings",
+      "description": "Store settings GET/PUT (shop name, auto-print, etc.).",
+      "files": ["backend/app/routers/settings.py"],
+      "api_doc": {
+        "paths": {
+          "/settings/store": { "get": { "summary": "Get store settings", "responses": { "200": {} } }, "put": { "summary": "Update store settings", "responses": { "200": {} } } }
+        }
+      }
+    },
+    {
+      "name": "System",
+      "description": "Backup: create, list, download.",
+      "files": ["backend/app/routers/system.py"],
+      "api_doc": {
+        "paths": {
+          "/system/backup": { "post": { "summary": "Create backup", "responses": { "200": {} } } },
+          "/system/backups": { "get": { "summary": "List backups", "responses": { "200": {} } } },
+          "/system/backups/download/{filename}": { "get": { "summary": "Download backup", "responses": { "200": {} } } }
+        }
+      }
+    },
+    {
+      "name": "Dashboard",
+      "description": "Dashboard summary (today revenue, profit, low stock).",
+      "files": ["backend/app/routers/dashboard.py"],
+      "api_doc": {
+        "paths": {
+          "/dashboard/summary": { "get": { "summary": "Dashboard summary", "responses": { "200": {} } } }
+        }
+      }
+    },
+    {
+      "name": "Reports",
+      "description": "Sales report by date and payment method, CSV export.",
+      "files": ["backend/app/routers/reports.py"],
+      "api_doc": {
+        "paths": {
+          "/reports/sales": { "get": { "summary": "Sales report", "parameters": [{ "name": "start_date", "in": "query" }, { "name": "end_date", "in": "query" }], "responses": { "200": {} } } },
+          "/reports/export": { "get": { "parameters": [{ "name": "start_date" }, { "name": "end_date" }], "responses": { "200": { "content": { "text/csv": {} } } } } }
+        }
+      }
+    },
+    {
+      "name": "Tax / eTIMS",
+      "description": "Export KRA eTIMS CSV, VSCU payload for transaction.",
+      "files": ["backend/app/routers/tax_export.py"],
+      "api_doc": {
+        "paths": {
+          "/tax/etims-csv": { "get": { "parameters": [{ "name": "start_date" }, { "name": "end_date" }], "responses": { "200": { "content": { "text/csv": {} } } } } },
+          "/tax/vscu-payload": { "get": { "parameters": [{ "name": "transaction_id", "in": "query" }], "responses": { "200": {} } } }
+        }
+      }
+    },
+    {
+      "name": "M-Pesa",
+      "description": "STK Push, callback, verify-manual, C2B confirmation, transaction-status.",
+      "files": ["backend/app/routers/mpesa.py", "backend/app/mpesa_utils.py", "backend/app/mpesa_manual.py"],
+      "api_doc": {
+        "paths": {
+          "/mpesa/stk-push": { "post": { "summary": "Send STK push", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "phone": {}, "amount": {}, "checkout_id": {} } } } } }, "responses": { "200": {} } } },
+          "/mpesa/callback": { "post": { "summary": "Daraja callback", "responses": { "200": {} } } },
+          "/mpesa/verify-manual": { "post": { "summary": "Verify manual code", "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "code": {}, "checkout_id": {} } } } } }, "responses": { "200": {} } } },
+          "/mpesa/transaction-status": { "get": { "parameters": [{ "name": "checkout_id" }], "responses": { "200": {} } } }
+        }
+      }
+    },
+    {
+      "name": "Payments",
+      "description": "Verify payment (checkout_id).",
+      "files": ["backend/app/routers/payments.py"],
+      "api_doc": {
+        "paths": {
+          "/payments/verify/{checkout_id}": { "get": { "summary": "Verify payment", "responses": { "200": {} } } }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "name": "dukapos-electron",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist-main/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:vite\" \"wait-on http://localhost:5173 && npm run dev:electron\"",
+    "dev:vite": "cd src/renderer && npm run dev",
+    "dev:electron": "tsc -p tsconfig.main.json && electron .",
+    "build": "cd src/renderer && npm run build && cd ../.. && tsc -p tsconfig.main.json && npx --node-options=\"--max-old-space-size=4096\" electron-builder",
+    "install:renderer": "cd src/renderer && npm install"
+  },
+  "build": {
+    "appId": "com.dukapos.app",
+    "productName": "DukaPOS",
+    "directories": {
+      "output": "dist"
+    },
+    "extraResources": [
+      {
+        "from": "../backend/dist/server.exe",
+        "to": "server.exe"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": null
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "DukaPOS",
+      "include": "build/installer.nsh"
+    },
+    "files": [
+      "dist-main/**/*",
+      "src/renderer/dist/**/*"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^24.13.3",
+    "typescript": "^5.7.2",
+    "wait-on": "^8.0.1"
+  }
+}

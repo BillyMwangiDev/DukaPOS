@@ -1,0 +1,24 @@
+{
+  "_note": "DukaPOS Production Configuration - Fill in your live Safaricom Daraja credentials before deployment",
+  "mpesa": {
+    "consumer_key": "",
+    "consumer_secret": "",
+    "daraja_base_url": "https://api.safaricom.co.ke",
+    "passkey": "",
+    "shortcode": "",
+    "callback_url": "",
+    "_help": {
+      "consumer_key": "Your Safaricom Daraja API Consumer Key (from developer portal)",
+      "consumer_secret": "Your Safaricom Daraja API Consumer Secret",
+      "daraja_base_url": "Use https://api.safaricom.co.ke for live, https://sandbox.safaricom.co.ke for testing",
+      "passkey": "The Lipa Na M-Pesa Online Passkey from Safaricom",
+      "shortcode": "Your M-Pesa Paybill or Till number",
+      "callback_url": "Your publicly accessible URL for M-Pesa callbacks (e.g., https://your-domain.com/mpesa/callback)"
+    }
+  },
+  "production_settings": {
+    "disable_swagger_ui": true,
+    "enable_auto_backup": true,
+    "max_backup_files": 30
+  }
+}

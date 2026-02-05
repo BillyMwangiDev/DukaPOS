@@ -1,0 +1,875 @@
+[
+  {
+    "id": "TC001",
+    "title": "Health Check API returns healthy status",
+    "description": "Verify that the GET /health endpoint returns a healthy status indicating the backend service is running",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /health endpoint"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response body indicates system health is OK"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Create Product with valid data",
+    "description": "Verify that the POST /products endpoint successfully creates a product when supplied with valid data",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /products with valid product details"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 201 Created"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify returned product data matches input data"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Update Product Name and Price",
+    "description": "Verify that the PATCH /products/{id} endpoint updates product name and price correctly",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send PATCH request to /products/{id} with updated name and price"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the product's data is updated accordingly"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Delete Product by ID",
+    "description": "Verify that DELETE /products/{id} removes the specified product successfully",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send DELETE request to /products/{id} with valid product ID"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 204 No Content"
+      },
+      {
+        "type": "action",
+        "description": "Send GET request to /products/{id}"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that product is no longer found (404 Not Found)"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Get Product by Barcode",
+    "description": "Verify GET /products/barcode/{barcode} returns the correct product for a valid barcode",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /products/barcode/{valid_barcode}"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify returned product matches the barcode"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Attempt Get Product by Invalid Barcode",
+    "description": "Verify GET /products/barcode/{barcode} returns 404 for unknown barcode",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /products/barcode/{invalid_barcode}"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 404 Not Found"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "User Creation with valid details",
+    "description": "Verify POST /users creates a new user with valid input",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /users with valid user details"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 201 Created"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify returned user data matches input, except password is not returned"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "User Login with correct credentials",
+    "description": "Verify POST /users/login returns success with valid user credentials",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /users/login with valid username and password"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response includes user token or session indicator"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "User Login fails with incorrect credentials",
+    "description": "Verify POST /users/login fails authentication with incorrect username or password",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /users/login with invalid username or password"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 401 Unauthorized or equivalent"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response contains descriptive authentication failure message"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Verify Admin PIN with valid PIN",
+    "description": "Verify POST /users/verify-admin-pin returns success when a valid admin PIN is provided",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /users/verify-admin-pin with valid admin PIN"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response indicates PIN verification success"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Verify Admin PIN failure with invalid PIN",
+    "description": "Verify POST /users/verify-admin-pin returns failure when invalid admin PIN is supplied",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /users/verify-admin-pin with invalid PIN"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 401 Unauthorized or equivalent"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response indicates PIN verification failure"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Create Transaction with cash payment",
+    "description": "Verify POST /transactions successfully records a transaction with cash payment including multiple items and correct stock deduction",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /transactions with items, payment_method: cash, valid shift_id, customer_id"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 201 Created"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify stock quantity of each item is reduced appropriately"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Create Transaction with M-Pesa payment offline manual code",
+    "description": "Verify POST /transactions supports M-Pesa manual payment method while offline",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /transactions with payment_method as M-Pesa manual code, simulating offline state"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 201 Created"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify transaction records correct manual M-Pesa payment details"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Create Transaction fails with invalid payment method",
+    "description": "Verify that POST /transactions rejects invalid or unsupported payment methods",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /transactions with invalid payment_method value"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 400 Bad Request"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response error message describes invalid payment method"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Open a Shift successfully",
+    "description": "Verify POST /shifts/open creates and opens a new shift record",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /shifts/open to open a shift"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 201 Created"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify shift is marked as open with correct timestamps"
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Get Current Open Shift",
+    "description": "Verify GET /shifts/current returns the currently open shift if any",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /shifts/current"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response contains current open shift details or null if none is open"
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Close a Shift successfully",
+    "description": "Verify POST /shifts/{id}/close closes an existing shift and finalizes its status",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /shifts/{id}/close for an open shift"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify shift status is updated to closed with closing timestamp"
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Retrieve Z-report for a closed shift",
+    "description": "Verify GET /shifts/{id}/z-report returns accurate financial data for that shift",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /shifts/{id}/z-report for a closed shift"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify returned report includes correct totals, VAT calculations, and payment method breakdown"
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "Create Customer with valid data",
+    "description": "Verify POST /customers creates a customer when provided valid input",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /customers with valid customer fields"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 201 Created"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify returned customer data matches input"
+      }
+    ]
+  },
+  {
+    "id": "TC020",
+    "title": "Record Customer Payment reducing credit",
+    "description": "Verify POST /customers/{id}/payment records payment and adjusts customer credit accordingly",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /customers/{id}/payment with payment amount"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify customer's outstanding credit is reduced by payment amount"
+      }
+    ]
+  },
+  {
+    "id": "TC021",
+    "title": "Hold an order successfully",
+    "description": "Verify POST /orders/hold stores an order on hold with correct details",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /orders/hold with order details"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 201 Created"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify held order can be retrieved later"
+      }
+    ]
+  },
+  {
+    "id": "TC022",
+    "title": "List all held orders",
+    "description": "Verify GET /orders/held returns a list of held orders",
+    "category": "functional",
+    "priority": "Low",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /orders/held"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response contains array of held orders"
+      }
+    ]
+  },
+  {
+    "id": "TC023",
+    "title": "Retrieve a specific held order by ID",
+    "description": "Verify GET /orders/held/{id} returns the held order details",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /orders/held/{id} with valid held order ID"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify returned order matches requested ID"
+      }
+    ]
+  },
+  {
+    "id": "TC024",
+    "title": "Delete a held order",
+    "description": "Verify DELETE /orders/held/{id} removes the held order",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send DELETE request to /orders/held/{id} with valid held order ID"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 204 No Content"
+      },
+      {
+        "type": "action",
+        "description": "Send GET request to /orders/held/{id}"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 404 Not Found"
+      }
+    ]
+  },
+  {
+    "id": "TC025",
+    "title": "Upload Inventory via Excel/CSV with valid file",
+    "description": "Verify POST /inventory/upload processes a valid inventory file and updates products",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /inventory/upload with well-formed Excel or CSV file containing inventory data"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify existing product inventory is updated accordingly"
+      }
+    ]
+  },
+  {
+    "id": "TC026",
+    "title": "Inventory upload fails with malformed file",
+    "description": "Verify POST /inventory/upload rejects malformed or incorrectly formatted files",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /inventory/upload with invalid or corrupted file"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 400 Bad Request or 422 Unprocessable Entity"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify error message describes file format or content issues"
+      }
+    ]
+  },
+  {
+    "id": "TC027",
+    "title": "Print Receipt successfully",
+    "description": "Verify POST /print/receipt triggers receipt printing for a transaction",
+    "category": "functional",
+    "priority": "Low",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /print/receipt with valid transaction info"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      }
+    ]
+  },
+  {
+    "id": "TC028",
+    "title": "Kick Drawer command processed",
+    "description": "Verify POST /print/kick-drawer sends command to open cash drawer",
+    "category": "functional",
+    "priority": "Low",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /print/kick-drawer endpoint"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      }
+    ]
+  },
+  {
+    "id": "TC029",
+    "title": "Get and Update Store Settings",
+    "description": "Verify GET /settings/store returns current settings and PUT /settings/store updates settings",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /settings/store"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK and includes store settings"
+      },
+      {
+        "type": "action",
+        "description": "Send PUT request to /settings/store with updated settings data"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "action",
+        "description": "Send GET request to /settings/store again"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify returned settings reflect the updates"
+      }
+    ]
+  },
+  {
+    "id": "TC030",
+    "title": "Create and List System Backup",
+    "description": "Verify POST /system/backup creates a backup and GET /system/backups lists available backups",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /system/backup to create a new backup"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 201 Created"
+      },
+      {
+        "type": "action",
+        "description": "Send GET request to /system/backups"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the list contains the recently created backup"
+      }
+    ]
+  },
+  {
+    "id": "TC031",
+    "title": "Download System Backup File",
+    "description": "Verify GET /system/backups/download/{filename} returns backup file for valid filename",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /system/backups/download/{valid_filename}"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response contains backup file content"
+      }
+    ]
+  },
+  {
+    "id": "TC032",
+    "title": "Dashboard Summary Data Retrieval",
+    "description": "Verify GET /dashboard/summary returns accurate summary metrics including sales, stock, and customer counts",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /dashboard/summary"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response contains summary metrics data structure"
+      }
+    ]
+  },
+  {
+    "id": "TC033",
+    "title": "Sales Report Generation",
+    "description": "Verify GET /reports/sales returns sales report data for given filters",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /reports/sales with valid date range and filters"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify returned report data includes correct aggregation of sales and VAT"
+      }
+    ]
+  },
+  {
+    "id": "TC034",
+    "title": "Export Sales Report as CSV",
+    "description": "Verify GET /reports/export returns sales report data in CSV format",
+    "category": "functional",
+    "priority": "Low",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /reports/export with appropriate filters"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response content type is text/csv or equivalent"
+      }
+    ]
+  },
+  {
+    "id": "TC035",
+    "title": "Generate Tax eTIMS CSV File",
+    "description": "Verify GET /tax/etims-csv returns correctly formatted eTIMS CSV for tax reporting",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /tax/etims-csv with valid date range"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify returned CSV has correct columns and data format"
+      }
+    ]
+  },
+  {
+    "id": "TC036",
+    "title": "Generate Tax VSCU Payload",
+    "description": "Verify GET /tax/vscu-payload returns valid JSON payload for VSCU tax submission",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /tax/vscu-payload with required parameters"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response contains valid VSCU JSON payload structure"
+      }
+    ]
+  },
+  {
+    "id": "TC037",
+    "title": "Trigger M-Pesa STK Push successfully",
+    "description": "Verify POST /mpesa/stk-push initiates an M-Pesa STK push request with valid parameters",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /mpesa/stk-push with required payment details"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response includes transaction checkout ID and status"
+      }
+    ]
+  },
+  {
+    "id": "TC038",
+    "title": "Handle M-Pesa Callback",
+    "description": "Verify POST /mpesa/callback endpoint correctly processes asynchronous M-Pesa transaction callbacks",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /mpesa/callback with valid callback payload"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the transaction status is updated accordingly"
+      }
+    ]
+  },
+  {
+    "id": "TC039",
+    "title": "Verify manual M-Pesa payment code",
+    "description": "Verify POST /mpesa/verify-manual validates the manually entered M-Pesa payment code correctly",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send POST request to /mpesa/verify-manual with valid manual payment code"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK if code is valid"
+      }
+    ]
+  },
+  {
+    "id": "TC040",
+    "title": "Check M-Pesa Transaction Status",
+    "description": "Verify GET /mpesa/transaction-status returns the current status of a given M-Pesa transaction",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /mpesa/transaction-status with valid transaction ID"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response contains correct transaction status details"
+      }
+    ]
+  },
+  {
+    "id": "TC041",
+    "title": "Verify Payment Validity",
+    "description": "Verify GET /payments/verify/{checkout_id} returns payment verification status correctly",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send GET request to /payments/verify/{valid_checkout_id}"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response status code is 200 OK"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify response indicates the payment is valid or invalid"
+      }
+    ]
+  }
+]

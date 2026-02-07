@@ -10,7 +10,6 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 STORE_SETTINGS_ID = 1
 
-
 class StoreSettingsRead(BaseModel):
     shop_name: str
     station_id: str
@@ -24,7 +23,6 @@ class StoreSettingsRead(BaseModel):
     staff_limit: int = 5
     master_ip: str = "127.0.0.1"
 
-
 class StoreSettingsUpdate(BaseModel):
     shop_name: str | None = None
     station_id: str | None = None
@@ -37,7 +35,6 @@ class StoreSettingsUpdate(BaseModel):
     auto_backup_enabled: bool | None = None
     staff_limit: int | None = None
     master_ip: str | None = None
-
 
 @router.get("/store", response_model=StoreSettingsRead)
 def get_store_settings():
@@ -71,7 +68,6 @@ def get_store_settings():
             staff_limit=getattr(row, "staff_limit", 5),
             master_ip=getattr(row, "master_ip", "127.0.0.1")
         )
-
 
 @router.put("/store", response_model=StoreSettingsRead)
 def update_store_settings(data: StoreSettingsUpdate):
@@ -120,4 +116,3 @@ def update_store_settings(data: StoreSettingsUpdate):
             staff_limit=getattr(row, "staff_limit", 5),
             master_ip=getattr(row, "master_ip", "127.0.0.1")
         )
-

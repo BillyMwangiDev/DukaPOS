@@ -9,7 +9,6 @@ from app.models import Receipt, SaleItem, Product
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
-
 class DashboardSummary(BaseModel):
     total_revenue: float
     total_cash: float
@@ -18,7 +17,6 @@ class DashboardSummary(BaseModel):
     net_profit: float
     vat_collected: float
     transaction_count: int
-
 
 @router.get("/summary", response_model=DashboardSummary)
 def get_dashboard_summary():
@@ -39,11 +37,12 @@ def get_dashboard_summary():
                 total_cash += r.total_amount
             elif ptype == "MOBILE":
                 total_mobile += r.total_amount
-            elif ptype == "MPESA": # Backward compatibility if any strings remain
+            elif ptype == "MPESA":
+      # Backward compatibility if any strings remain
                 total_mobile += r.total_amount
             elif ptype == "CREDIT":
                 total_credit += r.total_amount
-        
+
         vat_collected = total_revenue / 1.16 * 0.16
         net_profit = 0.0
         for r in receipts:
@@ -54,7 +53,7 @@ def get_dashboard_summary():
                 prod = session.get(Product, it.product_id)
                 if prod:
                     net_profit += (it.price_at_moment - prod.price_buying) * it.quantity
-        
+
         return DashboardSummary(
             total_revenue=total_revenue,
             total_cash=total_cash,
@@ -64,4 +63,3 @@ def get_dashboard_summary():
             vat_collected=round(vat_collected, 2),
             transaction_count=len(receipts),
         )
-

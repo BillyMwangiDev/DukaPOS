@@ -11,12 +11,10 @@ TIMEOUT_SEC = 8
 
 router = APIRouter(prefix="/print", tags=["print"])
 
-
 class ReceiptItem(BaseModel):
     name: str
     quantity: int
     price: float  # gross (VAT-inclusive) per unit
-
 
 class ReceiptPayload(BaseModel):
     """Accept empty body (API/test compatibility): defaults to no lines, zero total."""
@@ -28,20 +26,18 @@ class ReceiptPayload(BaseModel):
     payment_subtype: Optional[str] = None
     kra_pin: Optional[str] = None
     contact_phone: Optional[str] = None
-    payments: Optional[List[dict]] = None # [{method: string, amount: number, details: {...}}]
-
+    payments: Optional[List[dict]] = None  # [{method: string, amount: number, details: {...}}]
 
 class KickDrawerResponse(BaseModel):
     ok: bool
     status: str = "ok"  # API/test compatibility
     warning: Optional[str] = None
 
-
 def _do_print_receipt(
-    shop_name: str, 
-    items: list, 
-    total_gross: float, 
-    payment_method: str, 
+    shop_name: str,
+    items: list,
+    total_gross: float,
+    payment_method: str,
     station_id: str = "POS-01",
     payment_subtype: Optional[str] = None,
     kra_pin: Optional[str] = None,
@@ -61,10 +57,8 @@ def _do_print_receipt(
         payments=payments
     )
 
-
 def _do_kick_drawer() -> None:
     get_printer().kick_drawer()
-
 
 @router.post("/receipt")
 def print_receipt(payload: Optional[ReceiptPayload] = Body(None)):
@@ -88,7 +82,6 @@ def print_receipt(payload: Optional[ReceiptPayload] = Body(None)):
         return {"ok": True, "status": "ok"}
     except (Exception, FuturesTimeoutError):
         return {"ok": False, "status": "error", "warning": PRINTER_OFFLINE}
-
 
 @router.post("/kick-drawer", response_model=KickDrawerResponse)
 def kick_drawer():

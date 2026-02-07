@@ -13,14 +13,12 @@ CASH_DRAWER_KICK = bytes([0x1B, 0x70, 0x00, 0x19, 0xFA])
 # Thread pool for non-blocking print/kick so UI stays fluid
 _executor: Optional[Any] = None
 
-
 def _get_executor():
     global _executor
     if _executor is None:
         import concurrent.futures
         _executor = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="pos_printer")
     return _executor
-
 
 class ESCPOSPrinter:
     """Universal thermal printer (ESC/POS): Usb, Network, Serial, or Dummy."""
@@ -72,7 +70,7 @@ class ESCPOSPrinter:
             p.raw(CASH_DRAWER_KICK)
         elif hasattr(p, "cashdraw") and callable(getattr(p, "cashdraw")):
             p.cashdraw(2)  # pin 2 typical for RJ11; Dummy supports this
-        
+
         if self._backend == "file":
             self._save_to_log("--- CASH DRAWER KICKED ---")
 
@@ -102,7 +100,7 @@ class ESCPOSPrinter:
         kra_pin = kwargs.get("kra_pin")
         contact_phone = kwargs.get("contact_phone")
         payment_subtype = kwargs.get("payment_subtype")
-        payments = kwargs.get("payments") # List[dict]
+        payments = kwargs.get("payments")  # List[dict]
 
         p = self._get_printer()
         # Center + bold for shop name (header)
@@ -125,7 +123,7 @@ class ESCPOSPrinter:
         p.text("--------------------------------\n")
         p.set(align="right")
         p.text(f"TOTAL: KSh {total_gross:.2f}\n")
-        
+
         # Multi-tender breakdown
         if payments and len(payments) > 0:
             p.text("PAYMENTS:\n")
@@ -143,20 +141,18 @@ class ESCPOSPrinter:
 
         p.set(align="center")
         p.text("\nThank you for shopping!\n\n\n")
-        
+
         if self._backend == "file":
             # For the file backend, we attempt to save the buffer as readable text
             from datetime import datetime
             ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self._save_to_log(f"=== RECEIPT {ts} ===\n" + p.output.decode('ascii', errors='ignore') + "\n====================\n")
-            p.clear() # Clear dummy buffer
+            p.clear()  # Clear dummy buffer
 
         if self._backend not in ["dummy", "file"]:
             p.cut()
 
-
 _printer_instance: Optional[ESCPOSPrinter] = None
-
 
 def get_printer() -> ESCPOSPrinter:
     global _printer_instance
@@ -164,11 +160,9 @@ def get_printer() -> ESCPOSPrinter:
         _printer_instance = _create_printer_from_env()
     return _printer_instance
 
-
 def set_printer(instance: ESCPOSPrinter) -> None:
     global _printer_instance
     _printer_instance = instance
-
 
 def _create_printer_from_env() -> ESCPOSPrinter:
     """Build printer from env: PRINTER_BACKEND, PRINTER_* connection params."""
@@ -196,7 +190,6 @@ def _create_printer_from_env() -> ESCPOSPrinter:
             baudrate=int(config("PRINTER_BAUD", default=9600)),
         )
     return ESCPOSPrinter(backend="dummy")
-
 
 def run_in_printer_thread(fn: Any, *args: Any, **kwargs: Any) -> Any:
     """Run print/kick in a worker thread. Returns a Future so caller can wait with timeout."""

@@ -9,11 +9,9 @@ from app.models import Shift, Receipt, Staff
 
 router = APIRouter(prefix="/shifts", tags=["shifts"])
 
-
 class ShiftOpenRequest(BaseModel):
     staff_id: int = 1
     opening_float: float = 0.0
-
 
 class ShiftOpenResponse(BaseModel):
     id: int
@@ -23,10 +21,8 @@ class ShiftOpenResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-
 class ShiftCloseRequest(BaseModel):
     closing_actual: float = 0.0
-
 
 class ZReportResponse(BaseModel):
     shift_id: int
@@ -38,7 +34,6 @@ class ZReportResponse(BaseModel):
     total_credit_sales: float
     transaction_count: int
 
-
 @router.post("/open", response_model=ShiftOpenResponse, status_code=201)
 def open_shift(data: Optional[ShiftOpenRequest] = Body(None)):
     """Open a new shift."""
@@ -47,7 +42,7 @@ def open_shift(data: Optional[ShiftOpenRequest] = Body(None)):
         staff = session.get(Staff, req.staff_id)
         if not staff:
             raise HTTPException(status_code=400, detail="Invalid staff_id")
-        
+
         existing = session.exec(
             select(Shift).where(
                 Shift.cashier_id == req.staff_id,
@@ -61,7 +56,7 @@ def open_shift(data: Optional[ShiftOpenRequest] = Body(None)):
                 opening_float=existing.opening_float,
                 staff_id=existing.cashier_id,
             )
-            
+
         shift = Shift(
             cashier_id=req.staff_id,
             opening_float=req.opening_float,
@@ -75,7 +70,6 @@ def open_shift(data: Optional[ShiftOpenRequest] = Body(None)):
             opening_float=shift.opening_float,
             staff_id=shift.cashier_id,
         )
-
 
 @router.get("/current")
 def get_current_shift(staff_id: int = 1):
@@ -97,7 +91,6 @@ def get_current_shift(staff_id: int = 1):
         }
         return {"shift": payload, **payload}
 
-
 def _compute_shift_totals(session: Session, shift_id: int) -> dict:
     """Compute cash/mobile/credit totals."""
     receipts = session.exec(
@@ -115,7 +108,7 @@ def _compute_shift_totals(session: Session, shift_id: int) -> dict:
             total_mobile += amt
         elif ptype == "CREDIT":
             total_credit += amt
-            
+
     shift = session.get(Shift, shift_id)
     opening = shift.opening_float if shift else 0.0
     closing_expected = opening + total_cash
@@ -127,7 +120,6 @@ def _compute_shift_totals(session: Session, shift_id: int) -> dict:
         "opening_float": opening,
         "transaction_count": len(receipts),
     }
-
 
 @router.get("/{shift_id}/z-report", response_model=ZReportResponse)
 def get_z_report(shift_id: int):
@@ -149,7 +141,6 @@ def get_z_report(shift_id: int):
             total_credit_sales=totals["total_credit_sales"],
             transaction_count=totals["transaction_count"],
         )
-
 
 @router.post("/{shift_id}/close")
 def close_shift(shift_id: int, data: ShiftCloseRequest):
@@ -180,4 +171,3 @@ def close_shift(shift_id: int, data: ShiftCloseRequest):
             "total_credit_sales": totals["total_credit_sales"],
             "transaction_count": totals["transaction_count"],
         }
-

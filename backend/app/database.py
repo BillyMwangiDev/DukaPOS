@@ -4,7 +4,6 @@ import sys
 from sqlmodel import Session, create_engine, SQLModel, select
 from app.config import config
 
-
 from app.models import Staff, InvoiceSequence, StoreSettings
 
 # When run as PyInstaller exe, Electron sets DATABASE_URL to userData/data/pos.db
@@ -12,9 +11,9 @@ if getattr(sys, "frozen", False) and os.environ.get("DATABASE_URL"):
     DATABASE_URL = os.environ["DATABASE_URL"]
 else:
     DATABASE_URL = config("DATABASE_URL", default="sqlite:///./dukapos.db")
-connect_args = {} if not DATABASE_URL.startswith("sqlite") else {"check_same_thread": False}
+connect_args = {} if not DATABASE_URL.startswith("sqlite") else {"check_same_thread":
+     False}
 engine = create_engine(DATABASE_URL, connect_args=connect_args, echo=False)
-
 
 def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
@@ -30,7 +29,6 @@ def create_db_and_tables() -> None:
     _seed_sample_staff()
     _seed_invoice_sequence()
     _seed_store_settings()
-
 
 def _migrate_to_enterprise_schema() -> None:
     """Migrate data from old User/Transaction tables to Staff/Receipt if needed."""
@@ -72,7 +70,6 @@ def _migrate_to_enterprise_schema() -> None:
                 """))
                 conn.commit()
 
-
 def _migrate_user_columns() -> None:
     """Add password_hash, is_active to staff table if missing."""
     from sqlalchemy import text, inspect
@@ -86,7 +83,6 @@ def _migrate_user_columns() -> None:
         if "is_active" not in cols:
             conn.execute(text("ALTER TABLE staff ADD COLUMN is_active INTEGER DEFAULT 1"))
         conn.commit()
-
 
 def _seed_default_staff() -> None:
     """Ensure at least one admin exists in Staff."""
@@ -113,13 +109,11 @@ def _seed_default_staff() -> None:
             ))
             session.commit()
 
-
 # Sample users for testing login
 _SAMPLE_STAFF = [
     {"username": "cashier", "password": "cashier123", "pin": "1234", "role": "cashier"},
     {"username": "jane", "password": "jane123", "pin": "5678", "role": "cashier"},
 ]
-
 
 def _seed_sample_staff() -> None:
     """Add sample cashier staff if they do not exist."""
@@ -138,14 +132,12 @@ def _seed_sample_staff() -> None:
             ))
         session.commit()
 
-
 def _seed_invoice_sequence() -> None:
     """Ensure one row in InvoiceSequence."""
     with Session(engine) as session:
         if session.exec(select(InvoiceSequence)).first() is None:
             session.add(InvoiceSequence(last_number=0))
             session.commit()
-
 
 def _migrate_store_settings_columns() -> None:
     """Add new columns like station_id to storesettings."""
@@ -183,7 +175,6 @@ def _migrate_store_settings_columns() -> None:
                         pass
         conn.commit()
 
-
 def _migrate_customer_kra_pin() -> None:
     """Add kra_pin to customer table if missing."""
     from sqlalchemy import text, inspect
@@ -196,7 +187,6 @@ def _migrate_customer_kra_pin() -> None:
             conn.execute(text("ALTER TABLE customer ADD COLUMN kra_pin TEXT DEFAULT ''"))
         conn.commit()
 
-
 def _migrate_product_description() -> None:
     """Add description to product table if missing."""
     from sqlalchemy import text, inspect
@@ -208,7 +198,6 @@ def _migrate_product_description() -> None:
         if "description" not in cols:
             conn.execute(text("ALTER TABLE product ADD COLUMN description TEXT"))
         conn.commit()
-
 
 def _migrate_customer_email_address() -> None:
     """Add email and address to customer table."""
@@ -223,7 +212,6 @@ def _migrate_customer_email_address() -> None:
                 conn.execute(text(f"ALTER TABLE customer ADD COLUMN {col} TEXT"))
         conn.commit()
 
-
 def _migrate_heldorder_notes() -> None:
     """Add notes to heldorder table."""
     from sqlalchemy import text, inspect
@@ -236,7 +224,6 @@ def _migrate_heldorder_notes() -> None:
             conn.execute(text("ALTER TABLE heldorder ADD COLUMN notes TEXT DEFAULT ''"))
         conn.commit()
 
-
 def _migrate_transactionitem_cashier() -> None:
     """Add cashier accountability columns."""
     from sqlalchemy import text, inspect
@@ -247,7 +234,6 @@ def _migrate_transactionitem_cashier() -> None:
             if "staff_id" not in cols:
                 conn.execute(text("ALTER TABLE saleitem ADD COLUMN staff_id INTEGER DEFAULT 1"))
         conn.commit()
-
 
 def _seed_store_settings() -> None:
     """Ensure row in StoreSettings (id=1)."""
@@ -269,7 +255,6 @@ def _seed_store_settings() -> None:
             ))
             session.commit()
 
-
 def get_next_receipt_id() -> str:
     """Generate next receipt ID with Station ID prefix (e.g. POS-01-00001)."""
     with Session(engine) as session:
@@ -288,8 +273,6 @@ def get_next_receipt_id() -> str:
         session.commit()
         return f"{prefix}-{next_num:05d}"
 
-
 def get_session():
     with Session(engine) as session:
         yield session
-

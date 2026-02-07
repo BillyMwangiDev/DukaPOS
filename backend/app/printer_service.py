@@ -13,12 +13,14 @@ CASH_DRAWER_KICK = bytes([0x1B, 0x70, 0x00, 0x19, 0xFA])
 # Thread pool for non-blocking print/kick so UI stays fluid
 _executor: Optional[Any] = None
 
+
 def _get_executor():
     global _executor
     if _executor is None:
         import concurrent.futures
         _executor = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="pos_printer")
     return _executor
+
 
 class ESCPOSPrinter:
     """Universal thermal printer (ESC/POS): Usb, Network, Serial, or Dummy."""
@@ -154,15 +156,18 @@ class ESCPOSPrinter:
 
 _printer_instance: Optional[ESCPOSPrinter] = None
 
+
 def get_printer() -> ESCPOSPrinter:
     global _printer_instance
     if _printer_instance is None:
         _printer_instance = _create_printer_from_env()
     return _printer_instance
 
+
 def set_printer(instance: ESCPOSPrinter) -> None:
     global _printer_instance
     _printer_instance = instance
+
 
 def _create_printer_from_env() -> ESCPOSPrinter:
     """Build printer from env: PRINTER_BACKEND, PRINTER_* connection params."""
@@ -190,6 +195,7 @@ def _create_printer_from_env() -> ESCPOSPrinter:
             baudrate=int(config("PRINTER_BAUD", default=9600)),
         )
     return ESCPOSPrinter(backend="dummy")
+
 
 def run_in_printer_thread(fn: Any, *args: Any, **kwargs: Any) -> Any:
     """Run print/kick in a worker thread. Returns a Future so caller can wait with timeout."""

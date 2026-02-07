@@ -9,9 +9,11 @@ from app.models import Shift, Receipt, Staff
 
 router = APIRouter(prefix="/shifts", tags=["shifts"])
 
+
 class ShiftOpenRequest(BaseModel):
     staff_id: int = 1
     opening_float: float = 0.0
+
 
 class ShiftOpenResponse(BaseModel):
     id: int
@@ -21,8 +23,10 @@ class ShiftOpenResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+
 class ShiftCloseRequest(BaseModel):
     closing_actual: float = 0.0
+
 
 class ZReportResponse(BaseModel):
     shift_id: int
@@ -33,6 +37,7 @@ class ZReportResponse(BaseModel):
     total_mobile_sales: float
     total_credit_sales: float
     transaction_count: int
+
 
 @router.post("/open", response_model=ShiftOpenResponse, status_code=201)
 def open_shift(data: Optional[ShiftOpenRequest] = Body(None)):
@@ -71,6 +76,7 @@ def open_shift(data: Optional[ShiftOpenRequest] = Body(None)):
             staff_id=shift.cashier_id,
         )
 
+
 @router.get("/current")
 def get_current_shift(staff_id: int = 1):
     """Get current open shift for staff member."""
@@ -90,6 +96,7 @@ def get_current_shift(staff_id: int = 1):
             "staff_id": shift.cashier_id,
         }
         return {"shift": payload, **payload}
+
 
 def _compute_shift_totals(session: Session, shift_id: int) -> dict:
     """Compute cash/mobile/credit totals."""
@@ -121,6 +128,7 @@ def _compute_shift_totals(session: Session, shift_id: int) -> dict:
         "transaction_count": len(receipts),
     }
 
+
 @router.get("/{shift_id}/z-report", response_model=ZReportResponse)
 def get_z_report(shift_id: int):
     """Get Z-Report (Expected vs Actual) for shift."""
@@ -141,6 +149,7 @@ def get_z_report(shift_id: int):
             total_credit_sales=totals["total_credit_sales"],
             transaction_count=totals["transaction_count"],
         )
+
 
 @router.post("/{shift_id}/close")
 def close_shift(shift_id: int, data: ShiftCloseRequest):

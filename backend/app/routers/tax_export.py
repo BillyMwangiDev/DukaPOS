@@ -15,6 +15,7 @@ router = APIRouter(prefix="/tax", tags=["tax"])
 
 STORE_SETTINGS_ID = 1
 
+
 @router.get("/etims-csv")
 def export_etims_csv(
     start_date: Optional[str] = Query(None, description="YYYY-MM-DD"),
@@ -73,6 +74,7 @@ def export_etims_csv(
             headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
 
+
 def build_vscu_payload_for_transaction(receipt_db_id: int) -> Dict[str, Any] | None:
     """Build eTIMS VSCU-style payload for a receipt."""
     with Session(engine) as session:
@@ -117,6 +119,7 @@ def build_vscu_payload_for_transaction(receipt_db_id: int) -> Dict[str, Any] | N
             "receipt_type": "normal",
             "transaction_type": "credit_note" if r.is_return else "sale",
         }
+
 
 @router.get("/vscu-payload")
 def get_vscu_payload(id: int = Query(..., description="Receipt Database ID")):

@@ -9,6 +9,7 @@ from app.models import Receipt, SaleItem, Product
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
+
 class DashboardSummary(BaseModel):
     total_revenue: float
     total_cash: float
@@ -17,6 +18,7 @@ class DashboardSummary(BaseModel):
     net_profit: float
     vat_collected: float
     transaction_count: int
+
 
 @router.get("/summary", response_model=DashboardSummary)
 def get_dashboard_summary():
@@ -38,7 +40,7 @@ def get_dashboard_summary():
             elif ptype == "MOBILE":
                 total_mobile += r.total_amount
             elif ptype == "MPESA":
-      # Backward compatibility if any strings remain
+                # Backward compatibility if any strings remain
                 total_mobile += r.total_amount
             elif ptype == "CREDIT":
                 total_credit += r.total_amount

@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional
 from sqlmodel import SQLModel, Field
 
+
 class Staff(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(index=True, unique=True)
@@ -12,6 +13,7 @@ class Staff(SQLModel, table=True):
     role: str  # "admin", "cashier", "developer"
     pin_hash: str = ""  # bcrypt hash of 4-6 digit PIN
     is_active: bool = True
+
 
 class Product(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
@@ -26,6 +28,7 @@ class Product(SQLModel, table=True):
     stock_quantity: int = 0
     min_stock_alert: int = 5
 
+
 class Shift(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     opened_at: datetime = Field(default_factory=datetime.utcnow)
@@ -34,6 +37,7 @@ class Shift(SQLModel, table=True):
     opening_float: float = 0.0
     closing_actual: Optional[float] = None
     closing_expected: Optional[float] = None
+
 
 class Customer(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
@@ -45,10 +49,12 @@ class Customer(SQLModel, table=True):
     current_balance: float = 0.0
     debt_limit: float = 0.0
 
+
 class InvoiceSequence(SQLModel, table=True):
     """Single row: next receipt number sequence."""
     id: int | None = Field(default=None, primary_key=True)
     last_number: int = 0
+
 
 class Receipt(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -66,6 +72,7 @@ class Receipt(SQLModel, table=True):
     origin_station: str = Field(default="POS-01")  # Station ID for conflict resolution
     payment_status: str = "COMPLETED"  # COMPLETED, PENDING, FAILED
 
+
 class SaleItem(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     receipt_id: int = Field(foreign_key="receipt.id")
@@ -76,6 +83,7 @@ class SaleItem(SQLModel, table=True):
     is_return: bool = False
     return_reason: Optional[str] = None
 
+
 class HeldOrder(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     staff_id: int = Field(foreign_key="staff.id")
@@ -83,6 +91,7 @@ class HeldOrder(SQLModel, table=True):
     total_gross: float = 0.0
     notes: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 class StoreSettings(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)

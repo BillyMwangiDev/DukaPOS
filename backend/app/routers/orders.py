@@ -10,11 +10,13 @@ from app.models import HeldOrder, Staff
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
+
 class HoldOrderRequest(BaseModel):
     staff_id: int = 1
     items: list[dict] = []
     total_gross: float = 0.0
     notes: Optional[str] = None
+
 
 class HoldOrderResponse(BaseModel):
     id: int
@@ -23,6 +25,7 @@ class HoldOrderResponse(BaseModel):
     notes: str = ""
     created_at: str
 
+
 class HeldOrderRead(BaseModel):
     id: int
     staff_id: int
@@ -30,6 +33,7 @@ class HeldOrderRead(BaseModel):
     total_gross: float
     notes: str = ""
     created_at: str
+
 
 @router.post("/hold", response_model=HoldOrderResponse, status_code=201)
 def hold_order(data: HoldOrderRequest):
@@ -56,6 +60,7 @@ def hold_order(data: HoldOrderRequest):
             created_at=held.created_at.isoformat(),
         )
 
+
 @router.get("/held", response_model=list[HoldOrderResponse])
 def list_held_orders(staff_id: int = Query(1)):
     """List held orders for staff member."""
@@ -73,6 +78,7 @@ def list_held_orders(staff_id: int = Query(1)):
             )
             for h in held_list
         ]
+
 
 @router.get("/held/{order_id}", response_model=HeldOrderRead)
 def get_held_order(order_id: int, staff_id: int = Query(1)):
@@ -95,6 +101,7 @@ def get_held_order(order_id: int, staff_id: int = Query(1)):
             notes=held.notes or "",
             created_at=held.created_at.isoformat(),
         )
+
 
 @router.delete("/held/{order_id}", status_code=204)
 def delete_held_order(order_id: int, staff_id: int = Query(1)):

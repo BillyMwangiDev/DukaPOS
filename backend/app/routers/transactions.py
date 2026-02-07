@@ -15,10 +15,12 @@ from app.routers.tax_export import build_vscu_payload_for_transaction
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
+
 class SaleItemPayload(BaseModel):
     product_id: int
     quantity: int
     price_at_moment: float
+
 
 class ReceiptCreate(BaseModel):
     staff_id: int = 1
@@ -35,6 +37,7 @@ class ReceiptCreate(BaseModel):
     total_amount: float
     is_return: bool = False
 
+
 class ReceiptRead(BaseModel):
     id: int
     receipt_id: str
@@ -43,6 +46,7 @@ class ReceiptRead(BaseModel):
     is_return: bool
 
     model_config = {"from_attributes": True}
+
 
 @router.post("", response_model=ReceiptRead, status_code=201)
 def create_receipt(data: ReceiptCreate):

@@ -21,7 +21,7 @@ class ProductCreate(BaseModel):
     wholesale_price: Optional[float] = None
     wholesale_threshold: Optional[int] = None
     tax_percentage: float = 16.0
-    stock_quantity: int = 0
+    stock_quantity: int = Field(0, alias="quantity_in_stock")
     min_stock_alert: int = 5
     image_url: Optional[str] = None
     item_discount_type: Optional[str] = None

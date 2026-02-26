@@ -121,7 +121,7 @@ jobs:
           echo "Creating test product..."
           curl -sf -X POST http://localhost:8000/products \
             -H "Content-Type: application/json" \
-            -d '{"name":"Test Product","barcode":"TESTSKU01","price_selling":100,"price_buying":50,"quantity_in_stock":20}' \
+            -d '{"name":"Test Product","barcode":"TESTSKU01","price_selling":100,"price_buying":50,"stock_quantity":20}' \
             -o /dev/null && echo "Product created" || echo "Product creation failed (may already exist)"
 
           echo "Opening shift for admin (staff_id=1)..."

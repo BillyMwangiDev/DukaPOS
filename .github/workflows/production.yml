@@ -73,18 +73,48 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install Dependencies
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+
+      - name: Install Node Dependencies
         working-directory: electron
         run: |
           npm ci
           cd src/renderer && npm ci --legacy-peer-deps
+
+      - name: Build Renderer
+        working-directory: electron/src/renderer
+        run: npm run build
+
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Start Backend
+        working-directory: backend
+        shell: bash
+        run: python main.py &
+
+      - name: Wait for Backend
+        shell: bash
+        run: |
+          echo "Waiting for backend on :8000..."
+          for i in $(seq 1 30); do
+            curl -s http://localhost:8000/system/health -o /dev/null && echo "Backend ready" && break || sleep 1
+          done
+
       - name: Install Playwright Browsers
         working-directory: electron
         run: npx playwright install --with-deps
+
       - name: Run Playwright Tests
         working-directory: electron
         run: npx playwright test

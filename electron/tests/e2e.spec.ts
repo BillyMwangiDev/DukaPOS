@@ -39,7 +39,7 @@ test.describe('DukaPOS Smoke Tests', () => {
 
     // Enter credentials (seeded during setup)
     await window.fill('input#login-username', 'admin');
-    await window.fill('input#login-password', '0000');
+    await window.fill('input#login-password', 'admin123');
     await window.click('button:text("Sign in")');
 
     // Verify dashboard appears

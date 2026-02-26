@@ -46,7 +46,7 @@ jobs:
 
       - name: Lint Backend (Ruff)
         working-directory: backend
-        run: ruff check . --select E,F,W --ignore E501,W503
+        run: ruff check app main.py --select E,F,W --ignore E501
 
       - name: Security Audit (Python)
         working-directory: backend

@@ -167,7 +167,7 @@ jobs:
         working-directory: backend
         run: |
           pip install -r requirements.txt
-          .\build_backend.bat
+          python -m PyInstaller dukapos_server.spec --clean --noconfirm
 
       - name: Build Electron App
         working-directory: electron

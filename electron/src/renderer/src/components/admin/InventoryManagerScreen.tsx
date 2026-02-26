@@ -18,7 +18,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Pencil, Trash2, Search, Upload, ArrowUpDown, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Upload, ArrowUpDown, Calendar, FileDown } from "lucide-react";
 import { apiUrl } from "@/lib/api";
 import { formatKsh } from "@/lib/format";
 import { toast } from "sonner";
@@ -28,6 +28,7 @@ interface ProductRow {
   id: number;
   name: string;
   barcode: string;
+  description?: string | null;
   category: string;
   price_buying: number;
   price_selling: number;
@@ -176,17 +177,21 @@ export function InventoryManagerScreen({ readOnly = false }: InventoryManagerScr
     setForm({
       name: "",
       barcode: "",
+      description: null,
       category: "General",
       price_buying: 0,
       price_selling: 0,
       stock_quantity: 0,
       min_stock_alert: 5,
+      wholesale_price: null,
+      wholesale_threshold: null,
+      image_url: null,
       item_discount_type: null,
       item_discount_value: null,
       item_discount_start: null,
       item_discount_expiry: null,
     });
-    setEditing({ id: 0, name: "", barcode: "", category: "General", price_buying: 0, price_selling: 0, stock_quantity: 0, min_stock_alert: 5 });
+    setEditing({ id: 0, name: "", barcode: "", description: null, category: "General", price_buying: 0, price_selling: 0, stock_quantity: 0, min_stock_alert: 5, wholesale_price: null, wholesale_threshold: null });
   };
 
   const handleAdd = async () => {
@@ -202,11 +207,14 @@ export function InventoryManagerScreen({ readOnly = false }: InventoryManagerScr
         body: JSON.stringify({
           name: form.name,
           barcode: form.barcode,
+          description: form.description || null,
           category: form.category || "General",
           price_buying: form.price_buying ?? 0,
           price_selling: form.price_selling ?? 0,
           stock_quantity: form.stock_quantity ?? 0,
           min_stock_alert: form.min_stock_alert ?? 5,
+          wholesale_price: form.wholesale_price ?? null,
+          wholesale_threshold: form.wholesale_threshold ?? null,
           image_url: form.image_url || null,
           item_discount_type: form.item_discount_type || null,
           item_discount_value: form.item_discount_value || null,
@@ -286,6 +294,13 @@ export function InventoryManagerScreen({ readOnly = false }: InventoryManagerScr
             >
               <Upload className="mr-2 size-4 rotate-180" />
               Export Excel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => window.open(apiUrl("inventory/template"), "_blank")}
+            >
+              <FileDown className="mr-2 size-4" />
+              Download Template
             </Button>
             <Button
               variant="outline"
@@ -482,22 +497,34 @@ export function InventoryManagerScreen({ readOnly = false }: InventoryManagerScr
           <DialogHeader>
             <DialogTitle>{editing?.id ? "Edit Product" : "Add Product"}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 overflow-y-auto max-h-[70vh] pr-1">
             <div>
-              <Label>Name</Label>
+              <Label>Name <span className="text-rose-500">*</span></Label>
               <Input
                 value={form.name ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 className="mt-1"
+                placeholder="e.g. Brookside Milk 500ml"
               />
             </div>
             <div>
-              <Label>Barcode</Label>
+              <Label>Barcode <span className="text-rose-500">*</span></Label>
               <Input
                 value={form.barcode ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, barcode: e.target.value }))}
                 className="mt-1 font-mono"
                 disabled={!!(editing && editing.id)}
+                placeholder="e.g. 6001059039614"
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <textarea
+                rows={2}
+                value={form.description ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value || null }))}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="Optional product description"
               />
             </div>
             <div>
@@ -515,7 +542,7 @@ export function InventoryManagerScreen({ readOnly = false }: InventoryManagerScr
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Buying Price</Label>
+                <Label>Buying Price (KSh)</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -526,7 +553,7 @@ export function InventoryManagerScreen({ readOnly = false }: InventoryManagerScr
                 />
               </div>
               <div>
-                <Label>Selling Price</Label>
+                <Label>Selling Price (KSh) <span className="text-rose-500">*</span></Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -549,12 +576,37 @@ export function InventoryManagerScreen({ readOnly = false }: InventoryManagerScr
                 />
               </div>
               <div>
-                <Label>Min Stock Alert</Label>
+                <Label>Low Stock Alert</Label>
                 <Input
                   type="number"
                   value={form.min_stock_alert ?? ""}
                   onChange={(e) => setForm((f) => ({ ...f, min_stock_alert: parseInt(e.target.value, 10) || 0 }))}
                   className="mt-1"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Wholesale Price (KSh)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.wholesale_price ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, wholesale_price: e.target.value ? Math.max(0, parseFloat(e.target.value)) : null }))}
+                  className="mt-1"
+                  placeholder="Optional"
+                />
+              </div>
+              <div>
+                <Label>Wholesale Min Qty</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={form.wholesale_threshold ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, wholesale_threshold: e.target.value ? Math.max(1, parseInt(e.target.value, 10)) : null }))}
+                  className="mt-1"
+                  placeholder="e.g. 12"
                 />
               </div>
             </div>

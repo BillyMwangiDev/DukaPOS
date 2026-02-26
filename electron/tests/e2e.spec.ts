@@ -12,7 +12,6 @@ test.describe('DukaPOS Smoke Tests', () => {
   let window: any;
 
   test.beforeAll(async () => {
-    // Launch Electron app
     electronApp = await electron.launch({
       executablePath: ELECTRON_PATH,
       args: [PROJECT_ROOT],
@@ -21,7 +20,6 @@ test.describe('DukaPOS Smoke Tests', () => {
         E2E_TEST: 'true'
       }
     });
-
     window = await electronApp.firstWindow();
   });
 
@@ -30,58 +28,67 @@ test.describe('DukaPOS Smoke Tests', () => {
   });
 
   test('Auth: Standard login unlocks the system', async () => {
-    // Debug: Log content
     console.log('DEBUG: Page Content follows:');
     console.log(await window.content());
 
-    // Wait for login screen
     await window.waitForSelector('text=DukaPOS', { timeout: 10000 });
 
-    // Enter credentials (seeded during setup)
     await window.fill('input#login-username', 'admin');
     await window.fill('input#login-password', 'admin123');
-    await window.click('button:text("Sign in")');
+    await window.click('button:has-text("Sign in")');
 
-    // Verify dashboard appears
-    await expect(window.locator('text=Point of Sale')).toBeVisible({ timeout: 10000 });
+    // POS tab visible = login succeeded
+    await expect(window.locator('button:has-text("Point of Sale")')).toBeVisible({ timeout: 10000 });
   });
 
   test('Transaction: Full sale flow generates valid ID', async () => {
-    // Go to POS if not already there
-    await window.click('text=Point of Sale');
+    // Navigate to POS tab
+    await window.click('button:has-text("Point of Sale")');
 
-    // Click on the first product in the list
-    const firstProduct = window.locator('.product-card').first();
-    await firstProduct.waitFor();
+    // Open shift if not already open (required before any payment)
+    const openShiftBtn = window.locator('button:has-text("Open Shift")').first();
+    if (await openShiftBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await openShiftBtn.click(); // Opens OpenShiftModal
+      // Modal submit button also says "Open Shift"; use .last() to pick it over the header button
+      await window.locator('button:has-text("Open Shift")').last().click({ timeout: 5000 });
+      await window.waitForTimeout(500);
+    }
+
+    // Wait for product table (ProductGrid = <table>, no .product-card class)
+    const firstProduct = window.locator('table tbody tr').first();
+    await firstProduct.waitFor({ timeout: 15000 });
     await firstProduct.click();
 
-    // Click M-PESA in CommandCenter
-    await window.click('button:text("M-PESA")');
+    // Open PaymentModal via M-PESA button in CommandCenter
+    await window.click('button:has-text("M-PESA")');
 
-    // Select Till mode in PaymentModal
-    await window.click('button:text("Till")');
+    // Select Till mode inside PaymentModal (Mobile tab → mode buttons)
+    await window.click('button:has-text("Till")');
 
-    // Manual Confirm
-    await window.click('button:text("Manual Confirm (M-Pesa)")');
+    // Manually confirm — no real M-Pesa C2B callback needed
+    await window.click('button:has-text("Manual Confirm (M-Pesa)")');
 
-    // Finalize
-    await window.click('button:text("Finalize & Receipt")');
+    // Finalize the sale
+    await window.click('button:has-text("Finalize & Receipt")');
 
-    // Check for success toast
-    await expect(window.locator('text=Sale completed!')).toBeVisible();
+    await expect(window.locator('text=Sale completed!')).toBeVisible({ timeout: 10000 });
   });
 
   test('Reports: Exporting sales to Excel results in download', async () => {
-    await window.click('text=Admin');
-    await window.click('text=Reports');
+    // Navigate to Admin tab (top nav)
+    await window.click('button:has-text("Admin")');
 
-    // Click Export Excel
+    // Click "Sales Reports" in admin sidebar (not "Reports")
+    await window.click('button:has-text("Sales Reports")');
+
+    // Export Excel and capture download
     const [download] = await Promise.all([
       window.waitForEvent('download'),
-      window.click('button:text("Export Excel")'),
+      window.click('button:has-text("Excel")'),
     ]);
 
-    expect(download.suggestedFilename()).toContain('sales_report');
+    // Actual filename format: dukapos_sales_{start}_{end}.xlsx
+    expect(download.suggestedFilename()).toContain('dukapos_sales');
     expect(download.suggestedFilename()).toContain('.xlsx');
   });
 });

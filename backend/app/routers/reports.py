@@ -2,7 +2,7 @@ from datetime import datetime, timezone, timedelta
 from io import StringIO, BytesIO
 from typing import Optional
 from fastapi import APIRouter, Query, Depends, HTTPException, Response
-from fastapi.responses import PlainTextResponse, StreamingResponse
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select, extract
 import pandas as pd

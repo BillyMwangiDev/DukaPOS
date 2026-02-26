@@ -18,6 +18,35 @@ test.describe('DukaPOS Smoke Tests', () => {
       env: { ...process.env, E2E_TEST: 'true' }
     });
     window = await electronApp.firstWindow();
+
+    // ── Login ──────────────────────────────────────────────────────────────
+    await window.waitForSelector('text=DukaPOS', { timeout: 15000 });
+    await window.fill('input#login-username', 'admin');
+    await window.fill('input#login-password', 'admin123');
+    await window.click('button:has-text("Sign in")');
+
+    // Wait for main UI (nav tabs visible)
+    await window.waitForSelector('button:has-text("Point of Sale")', { timeout: 15000 });
+
+    // Let async operations complete (fetchCurrentShift, fetchStoreSettings)
+    await window.waitForTimeout(1500);
+
+    // ── Dismiss any blocking overlay (e.g. OpenShiftModal) ─────────────────
+    const overlay = window.locator('div.fixed.inset-0.bg-black\\/60');
+    if (await overlay.isVisible().catch(() => false)) {
+      await window.keyboard.press('Escape');
+      await window.waitForTimeout(500);
+    }
+
+    // ── Ensure a shift is open (CI seed may have failed) ───────────────────
+    const openShiftBtn = window.locator('button:has-text("Open Shift")').first();
+    if (await openShiftBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await openShiftBtn.click();                        // opens OpenShiftModal
+      await window.waitForTimeout(300);
+      // Click the submit button inside the modal (also labelled "Open Shift")
+      await window.locator('button:has-text("Open Shift")').last().click();
+      await window.waitForTimeout(800);                  // wait for API + state update
+    }
   });
 
   test.afterAll(async () => {
@@ -26,20 +55,14 @@ test.describe('DukaPOS Smoke Tests', () => {
 
   // ── Test 1: Auth ────────────────────────────────────────────────────────
   test('Auth: Standard login unlocks the system', async () => {
-    console.log('DEBUG: Page Content follows:');
-    console.log(await window.content());
-
-    await window.waitForSelector('text=DukaPOS', { timeout: 10000 });
-    await window.fill('input#login-username', 'admin');
-    await window.fill('input#login-password', 'admin123');
-    await window.click('button:has-text("Sign in")');
-
-    // POS tab visible = logged in successfully
-    await expect(window.locator('button:has-text("Point of Sale")')).toBeVisible({ timeout: 10000 });
+    // Login was performed in beforeAll; verify the main UI is fully unblocked
+    await expect(window.locator('button:has-text("Point of Sale")')).toBeVisible({ timeout: 5000 });
+    await expect(window.locator('button:has-text("Inventory")')).toBeVisible({ timeout: 5000 });
+    await expect(window.locator('button:has-text("Admin")')).toBeVisible({ timeout: 5000 });
   });
 
   // ── Test 2: Transaction ─────────────────────────────────────────────────
-  // Shift is pre-opened via API in CI (production.yml "Seed Test Data" step).
+  // Shift is pre-opened in beforeAll (or via CI seed step).
   // ProductGrid (table) is in the Inventory tab; CommandCenter (M-PESA) is in checkout.
   // Flow: Inventory → click product (added to Zustand cart) → Point of Sale → M-PESA → complete.
   test('Transaction: Full sale flow generates valid ID', async () => {
@@ -54,7 +77,7 @@ test.describe('DukaPOS Smoke Tests', () => {
     // Step 3: Switch to checkout view — CommandCenter (payment buttons) now visible
     await window.click('button:has-text("Point of Sale")');
 
-    // Step 4: Open PaymentModal via M-PESA (shift pre-opened via API so not blocked)
+    // Step 4: Open PaymentModal via M-PESA (shift pre-opened so not blocked)
     await window.click('button:has-text("M-PESA")');
 
     // Step 5: Select Till mode (no real Daraja callback needed)

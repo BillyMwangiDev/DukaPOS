@@ -90,7 +90,8 @@ jobs:
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
         run: |
           for ($i=1; $i -le 3; $i++) {
-            npm ci && break
+            npm ci
+            if ($LASTEXITCODE -eq 0) { break }
             if ($i -eq 3) { exit 1 }
             Write-Host "npm ci failed, retrying in 10s... ($i/3)"
             Start-Sleep -s 10
@@ -175,7 +176,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           for ($i=1; $i -le 3; $i++) {
-            npm ci && break
+            npm ci
+            if ($LASTEXITCODE -eq 0) { break }
             if ($i -eq 3) { exit 1 }
             Write-Host "npm ci failed, retrying in 10s... ($i/3)"
             Start-Sleep -s 10

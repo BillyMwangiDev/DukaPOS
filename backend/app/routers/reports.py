@@ -122,6 +122,7 @@ def get_sales_report(
 
 
 @router.get("/export/xlsx")
+@router.get("/export/excel")
 def export_sales_excel(
     start_date: str = Query(..., description="YYYY-MM-DD"),
     end_date: str = Query(..., description="YYYY-MM-DD"),
@@ -169,6 +170,7 @@ def export_sales_excel(
 
 
 @router.get("/export/csv", response_class=PlainTextResponse)
+@router.get("/export", response_class=PlainTextResponse)
 def export_sales_csv(
     start_date: str = Query(..., description="YYYY-MM-DD"),
     end_date: str = Query(..., description="YYYY-MM-DD"),

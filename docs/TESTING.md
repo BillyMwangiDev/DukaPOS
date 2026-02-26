@@ -1,106 +1,123 @@
-# DukaPOS – Testing
+# DukaPOS — Testing
 
-Testing strategy, conventions, and how to run tests quickly.
+Testing strategy, conventions, and how to run tests.
 
 ---
 
 ## 1. Test layers
 
-| Layer | Where | How to run |
-|-------|--------|------------|
-| **Backend unit/API** | `backend/tests/` | `cd backend && .venv\Scripts\python.exe -m pytest tests -v` |
-| **Frontend unit** | `electron/src/renderer/` | `cd electron\src\renderer && npm run test` |
-| **E2E / UI** | `electron/tests/` | `cd electron && npx playwright test` |
-
-Acceptance criteria are kept in **docs/PRD.md** (§9) and aligned with product decisions (§8).
+| Layer | Location | Count | Status |
+|-------|----------|-------|--------|
+| **Backend unit/API** | `backend/tests/` | 21 | ✅ all passing |
+| **Frontend unit** | `electron/src/renderer/` | 39 | ✅ all passing |
+| **E2E / smoke** | `electron/tests/` | 3 | ✅ all passing |
 
 ---
 
-## 2. Semantic selectors and explicit waits
+## 2. Running tests
 
-For **E2E, UI, or browser-based tests**, prefer:
+### All layers at once
 
-- **Semantic selectors** over brittle class/ID or XPath:
-  - `data-testid="..."` for stable, test-only hooks.
-  - `role` and `aria-*` (e.g. `getByRole("button", { name: "Complete Sale" })`, `aria-label`, `aria-checked`) so tests reflect accessibility and intent.
-  - Avoid relying on internal class names or DOM structure that may change with styling.
-- **Explicit waits** instead of fixed `sleep()`:
-  - Wait for a specific element or state (e.g. "receipt printed", "cart empty") with a timeout.
-  - Use `wait-on` or framework helpers (e.g. Playwright `expect(locator).toBeVisible()`) rather than arbitrary delays.
+```bash
+.\run_all_tests.bat
+```
 
-The renderer already uses `aria-*` in places (e.g. Settings toggles, pagination). When adding UI tests, add `data-testid` where needed and document selectors in this doc or in test files.
+### Backend (pytest)
 
----
+```bash
+# Full suite
+cd backend
+.venv\Scripts\python.exe -m pytest tests -vv
 
-## 3. Targeted reruns for speed
+# One file
+.venv\Scripts\python.exe -m pytest tests/test_comprehensive.py -v
 
-Use **small, targeted reruns** for fast iteration instead of the full suite every time.
+# One test by name
+.venv\Scripts\python.exe -m pytest tests/test_comprehensive.py::test_health_check -v
 
-### Backend tests (pytest)
+# Production-critical only (VAT, receipt ID, staff limit)
+.venv\Scripts\python.exe -m pytest tests/test_production_critical.py -v
+```
 
-- **Run the full backend suite**:
-  ```bash
-  cd backend && .venv\Scripts\python.exe -m pytest tests -vv
-  ```
-- **Run one test file**:
-  ```bash
-  cd backend && .venv\Scripts\python.exe -m pytest tests/test_comprehensive.py -v
-  ```
-- **Run one test by name**:
-  ```bash
-  cd backend && .venv\Scripts\python.exe -m pytest tests/test_comprehensive.py::test_health_check -v
-  ```
-- **Run production-critical tests only**:
-  ```bash
-  cd backend && .venv\Scripts\python.exe -m pytest tests/test_production_critical.py -v
-  ```
+### Frontend unit (Vitest)
 
-### Frontend tests (Vitest)
+```bash
+cd electron/src/renderer
+npm run test
+```
 
-- **Run all frontend tests**:
-  ```bash
-  cd electron\src\renderer && npm run test
-  ```
+### E2E smoke tests (Playwright)
 
-### E2E tests (Playwright)
+Requires the renderer to be built and a running backend:
 
-- **Run all E2E tests**:
-  ```bash
-  cd electron && npx playwright test
-  ```
+```bash
+# Build renderer first (one-time or when code changes)
+cd electron/src/renderer && npm run build && cd ../..
 
-### Unified test runner
+# Start backend in a separate terminal
+cd backend && .venv\Scripts\python.exe main.py
 
-- **Run all layers at once**:
-  ```bash
-  .\run_all_tests.bat
-  ```
+# Run Playwright tests
+cd electron
+npx playwright test
+
+# Show trace on failure
+npx playwright show-trace test-results/<test-folder>/trace.zip
+```
+
+In CI the backend is started automatically by the `test-frontend` job.
 
 ---
 
-## 4. Test files reference
+## 3. Test file reference
 
 | File | Purpose |
 |------|---------|
-| `backend/tests/conftest.py` | Pytest fixtures (test DB, session, client) |
-| `backend/tests/test_comprehensive.py` | Main suite: 21 tests covering health, products, transactions, shifts, customers, orders, settings, reports, bank, discounts, suppliers |
-| `backend/tests/test_production_critical.py` | VAT logic, station-prefixed receipt IDs, staff limit enforcement |
+| `backend/tests/conftest.py` | Pytest fixtures: in-memory SQLite test DB, HTTPX test client |
+| `backend/tests/test_comprehensive.py` | 21 tests — health, products, transactions, shifts, customers, held orders, settings, reports, bank payments, discounts, suppliers |
+| `backend/tests/test_production_critical.py` | VAT math, station-prefixed receipt IDs (`POS-01-00001`), staff limit enforcement |
+| `electron/src/renderer/src/**/*.test.*` | Vitest unit tests for frontend utilities and components |
+| `electron/tests/e2e.spec.ts` | 3 Playwright smoke tests (Auth, Transaction, Reports) |
 
 ---
 
-## 5. Commit changes regularly
+## 4. E2E test design
 
-**Commit changes regularly** so that:
+The three Playwright smoke tests share a single Electron instance (`beforeAll` / `afterAll`):
 
-- Diff-based regeneration (e.g. codegen, CI) stays accurate.
-- History reflects small, reviewable steps.
-- Rollback and bisect are easier.
+1. **Auth** — verifies all three nav tabs (Point of Sale, Inventory, Admin) are visible and unblocked after login.
+2. **Transaction** — Inventory → click product → POS → M-PESA Till → Manual Confirm → Finalize. Asserts `text=Sale completed!`.
+3. **Reports** — Admin → Sales Reports → Excel. Asserts `text=EXCEL downloaded` (the success toast).
 
-Suggested workflow:
+**Resilience built in:** `beforeAll` handles any blocking modal after login (presses `Escape`, then opens a shift via the modal if the "Open Shift" button is still visible). This guards against CI seed failures and race conditions.
 
-- Make a small, logical change (e.g. one feature or one fix).
-- Run the relevant **targeted** tests (see §3).
-- Commit with a clear message (e.g. `fix: optional cashier_id for GET /orders/held/{id}`).
-- Push when a feature or fix is complete.
+**Note on Excel export:** `SalesReportsScreen` uses `fetch → blob → URL.createObjectURL → <a download>.click()`. This is not a navigation-based download so Playwright's `waitForEvent('download')` never fires in Electron. The test verifies the success toast instead.
 
-See **README.md** for branch/PR guidance if applicable.
+---
+
+## 5. Selectors and waits
+
+- Prefer **text-based selectors** (`button:has-text("...")`) and role selectors over CSS class names.
+- Use **explicit waits** (`waitForSelector`, `expect(locator).toBeVisible()`) instead of arbitrary `waitForTimeout` where possible.
+- Add `data-testid` attributes when a reliable stable selector is needed for a complex component.
+
+---
+
+## 6. CI behaviour
+
+The `test-frontend` GitHub Actions job (runs on `windows-latest`):
+
+1. Installs deps, compiles Electron main process, builds Vite renderer.
+2. Starts the FastAPI backend (`python main.py &`), waits for `/system/health`.
+3. Seeds test data: creates a product (`TESTSKU01`, `stock_quantity: 20`) and opens a shift for `staff_id=1`.
+4. Installs Playwright browsers (`npx playwright install --with-deps`).
+5. Runs `npx playwright test` — all 3 tests must pass.
+
+---
+
+## 7. Commit discipline
+
+- Make small, logical changes.
+- Run the targeted test layer before committing.
+- Use descriptive prefixes: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `ci:`.
+- Push when a feature or fix is complete and tests are green.

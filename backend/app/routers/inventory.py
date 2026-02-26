@@ -256,7 +256,13 @@ def _read_upload(file: UploadFile) -> pd.DataFrame:
     raw = file.file.read()
     if file.filename and file.filename.lower().endswith(".csv"):
         return pd.read_csv(io.BytesIO(raw))
-    return pd.read_excel(io.BytesIO(raw))
+    df = pd.read_excel(io.BytesIO(raw))
+    # Detect the DukaPOS template format: title banner in row 1, column headers in row 2, hints in row 3.
+    # Re-read with skiprows=[0, 2] to skip title and hints so row 2 becomes the DataFrame header.
+    first_col = str(df.columns[0]).lower() if len(df.columns) > 0 else ""
+    if "dukapos" in first_col or "inventory import" in first_col:
+        df = pd.read_excel(io.BytesIO(raw), skiprows=[0, 2])
+    return df
 
 
 @router.post("/upload")

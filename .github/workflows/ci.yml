@@ -57,7 +57,7 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Lint (TypeScript)
-        run: npx tsc --noEmit || true
+        run: npx tsc --noEmit
 
       - name: Run tests
         run: npm run test

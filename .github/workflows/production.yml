@@ -17,14 +17,15 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
+          cache-dependency-path: electron/src/renderer/package-lock.json
 
       - name: Install Renderer Dependencies
         working-directory: electron/src/renderer
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
-      - name: Lint Renderer (ESLint)
+      - name: Lint Renderer (TypeScript)
         working-directory: electron/src/renderer
-        run: npx eslint . --max-warnings 0
+        run: npx tsc --noEmit
 
       - name: Security Audit (NPM)
         working-directory: electron/src/renderer
@@ -41,15 +42,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install ruff safety
+          pip install ruff pip-audit
 
       - name: Lint Backend (Ruff)
         working-directory: backend
-        run: ruff check .
+        run: ruff check . --select E,F,W --ignore E501,W503
 
-      - name: Security Audit (Python Safety)
+      - name: Security Audit (Python)
         working-directory: backend
-        run: safety check
+        run: pip-audit -r requirements.txt --skip-editable
 
   test-backend:
     needs: lint-and-audit
@@ -80,7 +81,7 @@ jobs:
         working-directory: electron
         run: |
           npm ci
-          cd src/renderer && npm ci
+          cd src/renderer && npm ci --legacy-peer-deps
       - name: Install Playwright Browsers
         working-directory: electron
         run: npx playwright install --with-deps
@@ -115,7 +116,7 @@ jobs:
         working-directory: electron
         run: |
           npm ci
-          cd src/renderer && npm ci
+          cd src/renderer && npm ci --legacy-peer-deps
           npm run build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

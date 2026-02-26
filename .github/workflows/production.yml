@@ -90,6 +90,10 @@ jobs:
           npm ci
           cd src/renderer && npm ci --legacy-peer-deps
 
+      - name: Compile Electron Main Process
+        working-directory: electron
+        run: npx tsc -p tsconfig.main.json
+
       - name: Build Renderer
         working-directory: electron/src/renderer
         run: npm run build

@@ -242,6 +242,8 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     out = {}
     for c in df.columns:
         key = str(c).strip().lower()
+        if key.endswith(" *"):   # strip required-field marker from template headers
+            key = key[:-2].strip()
         if key in COLUMN_ALIASES:
             out[COLUMN_ALIASES[key]] = df[c]
         else:

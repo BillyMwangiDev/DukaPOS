@@ -159,7 +159,9 @@ export function SalesReportsScreen() {
       const a = document.createElement("a");
       a.href = url;
       a.download = `dukapos_sales_${start}_${end}.${format === "excel" ? "xlsx" : "csv"}`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast.success(`${format.toUpperCase()} downloaded`);
     } catch {

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone, timedelta
 from io import StringIO, BytesIO
 from typing import Optional
-from fastapi import APIRouter, Query, Depends, HTTPException
+from fastapi import APIRouter, Query, Depends, HTTPException, Response
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select, extract
@@ -33,9 +33,9 @@ class SalesReportResponse(BaseModel):
 
 
 def _parse_date(s: str) -> datetime:
-    """Parse YYYY-MM-DD to UTC midnight."""
+    """Parse YYYY-MM-DD to UTC midnight (naive to match DB)."""
     dt = datetime.strptime(s, "%Y-%m-%d")
-    return dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def _date_str(dt: datetime) -> str:
@@ -162,8 +162,8 @@ def export_sales_excel(
 
     output.seek(0)
     filename = f"sales_report_{start_date}_to_{end_date}.xlsx"
-    return StreamingResponse(
-        output,
+    return Response(
+        content=output.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
@@ -217,8 +217,8 @@ def export_inventory_excel(session: Session = Depends(get_session)):
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Inventory')
     output.seek(0)
-    return StreamingResponse(
-        output,
+    return Response(
+        content=output.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=dukapos_inventory_export.xlsx"}
     )

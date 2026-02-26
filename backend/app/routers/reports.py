@@ -138,9 +138,17 @@ def export_sales_excel(
 
     end = end.replace(hour=23, minute=59, second=59)
 
-    receipts = session.exec(
-        select(Receipt).where(Receipt.timestamp >= start, Receipt.timestamp <= end)
-    ).all()
+    import logging
+    logger = logging.getLogger("dukapos.reports")
+    logger.info(f"EXPORT EXCEL: requested for {start_date} to {end_date}")
+    try:
+        receipts = session.exec(
+            select(Receipt).where(Receipt.timestamp >= start, Receipt.timestamp <= end)
+        ).all()
+        logger.info(f"EXPORT EXCEL: found {len(receipts)} receipts")
+    except Exception as e:
+        logger.error(f"EXPORT EXCEL query failed: {str(e)}")
+        raise
 
     data = []
     for r in receipts:
@@ -155,10 +163,16 @@ def export_sales_excel(
             "Status": r.payment_status
         })
 
+    logger.info(f"EXPORT EXCEL: writing {len(data)} rows to dataframe")
     df = pd.DataFrame(data)
     output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Sales')
+    try:
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Sales')
+        logger.info("EXPORT EXCEL: xlsx written to buffer")
+    except Exception as e:
+        logger.error(f"EXPORT EXCEL writing failed: {str(e)}")
+        raise
 
     output.seek(0)
     filename = f"sales_report_{start_date}_to_{end_date}.xlsx"

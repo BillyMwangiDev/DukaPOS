@@ -86,8 +86,15 @@ jobs:
 
       - name: Install Node Dependencies
         working-directory: electron
+        env:
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
         run: |
-          npm ci
+          for ($i=1; $i -le 3; $i++) {
+            npm ci && break
+            if ($i -eq 3) { exit 1 }
+            Write-Host "npm ci failed, retrying in 10s... ($i/3)"
+            Start-Sleep -s 10
+          }
           cd src/renderer && npm ci --legacy-peer-deps
 
       - name: Compile Electron Main Process
@@ -163,12 +170,18 @@ jobs:
 
       - name: Build Electron App
         working-directory: electron
+        env:
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npm ci
+          for ($i=1; $i -le 3; $i++) {
+            npm ci && break
+            if ($i -eq 3) { exit 1 }
+            Write-Host "npm ci failed, retrying in 10s... ($i/3)"
+            Start-Sleep -s 10
+          }
           cd src/renderer && npm ci --legacy-peer-deps
           npm run build
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

@@ -100,14 +100,11 @@ test.describe('DukaPOS Smoke Tests', () => {
     // Click "Sales Reports" in the admin sidebar (exact label, not "Reports")
     await window.click('button:has-text("Sales Reports")');
 
-    // Export and capture download event
-    const [download] = await Promise.all([
-      window.waitForEvent('download'),
-      window.click('button:has-text("Excel")'),
-    ]);
-
-    // SalesReportsScreen.tsx: `dukapos_sales_${start}_${end}.xlsx`
-    expect(download.suggestedFilename()).toContain('dukapos_sales');
-    expect(download.suggestedFilename()).toContain('.xlsx');
+    // Click Excel export button.
+    // NOTE: SalesReportsScreen uses fetch → blob → URL.createObjectURL → <a download>.click()
+    // which is not a navigation-based download, so Playwright's 'download' event never fires
+    // in Electron. Verify success via the toast message instead (SalesReportsScreen.tsx:166).
+    await window.click('button:has-text("Excel")');
+    await expect(window.locator('text=EXCEL downloaded')).toBeVisible({ timeout: 15000 });
   });
 });

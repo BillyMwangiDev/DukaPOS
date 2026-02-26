@@ -28,6 +28,8 @@ class CustomerRead(BaseModel):
     kra_pin: str = ""
     current_balance: float
     debt_limit: float
+    points_balance: int = 0
+    lifetime_points: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -74,6 +76,8 @@ def get_customer(customer_id: int):
 
 @router.post("", response_model=CustomerRead, status_code=201)
 def create_customer(data: CustomerCreate):
+    if data.debt_limit < 0:
+        raise HTTPException(status_code=400, detail="debt_limit cannot be negative")
     with Session(engine) as session:
         customer = Customer(
             name=data.name,
@@ -92,13 +96,18 @@ def create_customer(data: CustomerCreate):
 
 @router.patch("/{customer_id}", response_model=CustomerRead)
 def update_customer(customer_id: int, data: CustomerUpdate):
+    updates = data.model_dump(exclude_unset=True)
+    if "debt_limit" in updates and updates["debt_limit"] is not None and updates["debt_limit"] < 0:
+        raise HTTPException(status_code=400, detail="debt_limit cannot be negative")
     with Session(engine) as session:
         customer = session.get(Customer, customer_id)
         if not customer:
             raise HTTPException(status_code=404, detail="Customer not found")
-        for k, v in data.model_dump(exclude_unset=True).items():
+        for k, v in updates.items():
             if k == "kra_pin":
                 setattr(customer, k, (v or "").strip())
+            elif k == "current_balance" and v is not None and v < 0:
+                setattr(customer, k, 0.0)
             else:
                 setattr(customer, k, v)
         session.add(customer)
@@ -134,6 +143,26 @@ def record_payment(
             "amount": amt,
             "new_balance": customer.current_balance,
         }
+
+
+class PointsRequest(BaseModel):
+    points: int  # positive = add, negative = redeem
+
+
+@router.post("/{customer_id}/add-points")
+def adjust_points(customer_id: int, data: PointsRequest):
+    """Add or redeem loyalty points for a customer."""
+    with Session(engine) as session:
+        customer = session.get(Customer, customer_id)
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        customer.points_balance = max(0, customer.points_balance + data.points)
+        if data.points > 0:
+            customer.lifetime_points += data.points
+        session.add(customer)
+        session.commit()
+        session.refresh(customer)
+        return {"customer_id": customer_id, "points_balance": customer.points_balance, "lifetime_points": customer.lifetime_points}
 
 
 @router.delete("/{customer_id}", status_code=204)

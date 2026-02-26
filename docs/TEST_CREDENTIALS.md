@@ -25,12 +25,12 @@ Seeded by the backend on first run (see `backend/app/database.py`). All data is 
 
 ## API / TestSprite
 
-- **Login:** `POST /users/login` with `{"username": "admin", "password": "admin123"}` (or cashier/jane).
-- **Shifts / held orders:** Use `cashier_id: 1` (admin) or `2` (cashier), `3` (jane) as appropriate for tests.
+- **Login:** `POST /staff/login` with `{"username": "admin", "password": "admin123"}` (or cashier/jane).
+- **Shifts / held orders:** Use `staff_id: 1` (admin) or `2` (cashier), `3` (jane) as appropriate for tests.
 
 ---
 
 ## Changing or removing test users
 
 - In the app: **Admin → Users & Staff** — edit or deactivate users.
-- For a fresh DB: delete `pos.db` (or run migrations on an empty DB); backend will re-seed admin and sample cashiers on next start.
+- For a fresh DB: delete `dukapos.db` (or run migrations on an empty DB); backend will re-seed admin and sample cashiers on next start.

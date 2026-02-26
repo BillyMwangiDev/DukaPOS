@@ -5,7 +5,8 @@
  * Port: finds free port 8000, 8001, ... and passes to backend; injects port to renderer.
  * Child process killed on window-all-closed.
  */
-import { app, BrowserWindow, Menu } from "electron";
+import { app, BrowserWindow, Menu, session, dialog } from "electron";
+import { autoUpdater } from "electron-updater";
 import { spawn, ChildProcess } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
@@ -176,7 +177,7 @@ function createWindow(): void {
     mainWindow?.show();
   });
 
-  if (app.isPackaged) {
+  if (app.isPackaged || process.env.E2E_TEST === "true") {
     mainWindow.loadFile(path.join(__dirname, "..", "src", "renderer", "dist", "index.html"));
   } else {
     mainWindow.loadURL(RENDERER_URL);
@@ -194,6 +195,27 @@ function createWindow(): void {
 
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
+
+  // Content-Security-Policy: restrict sources to self + local backend API + WebSocket
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        "Content-Security-Policy": [
+          [
+            "default-src 'self'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline'",   // Tailwind inline styles
+            "img-src 'self' data: blob:",
+            `connect-src 'self' http://localhost:* ws://localhost:*`,
+            "font-src 'self' data:",
+            "object-src 'none'",
+            "base-uri 'self'",
+          ].join("; "),
+        ],
+      },
+    });
+  });
   const portFree = await isPortFree(PORT_START);
   if (!portFree) {
     console.log("[DukaPOS] Port", PORT_START, "already in use, assuming backend is running.");
@@ -212,6 +234,35 @@ app.whenReady().then(async () => {
     }
   }
   createWindow();
+
+  // Auto-update: only runs in the packaged app (not dev)
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify();
+
+    autoUpdater.on("update-available", () => {
+      dialog.showMessageBox({
+        type: "info",
+        title: "Update Available",
+        message: "A new version of DukaPOS is available and will be downloaded in the background.",
+      });
+    });
+
+    autoUpdater.on("update-downloaded", () => {
+      dialog.showMessageBox({
+        type: "info",
+        title: "Update Ready",
+        message: "Update downloaded. DukaPOS will restart to apply the update.",
+        buttons: ["Restart Now", "Later"],
+        defaultId: 0,
+      }).then(({ response }) => {
+        if (response === 0) autoUpdater.quitAndInstall();
+      });
+    });
+
+    autoUpdater.on("error", (err) => {
+      console.error("[DukaPOS] Auto-updater error:", err);
+    });
+  }
 });
 
 app.on("window-all-closed", () => {

@@ -103,6 +103,8 @@ class ESCPOSPrinter:
         contact_phone = kwargs.get("contact_phone")
         payment_subtype = kwargs.get("payment_subtype")
         payments = kwargs.get("payments")  # List[dict]
+        receipt_header = kwargs.get("receipt_header", "")
+        receipt_footer = kwargs.get("receipt_footer", "Thank you for shopping!")
 
         p = self._get_printer()
         # Center + bold for shop name (header)
@@ -114,6 +116,10 @@ class ESCPOSPrinter:
         if contact_phone:
             p.text(f"TEL: {contact_phone}\n")
         p.text(f"Station: {station_id}\n")
+        # Custom receipt header (address, tagline, etc.)
+        if receipt_header and receipt_header.strip():
+            for line in receipt_header.strip().splitlines():
+                p.text(f"{line.strip()}\n")
         p.text("--------------------------------\n")
         p.set(align="left")
         for it in items:
@@ -135,6 +141,19 @@ class ESCPOSPrinter:
                 sub = py.get("details", {}).get("subtype")
                 label = f"{meth} ({sub})" if sub else meth
                 p.text(f"  {label}: KSh {amt:.2f}\n")
+                
+                # Bank/M-Pesa details
+                det = py.get("details", {})
+                b_name = det.get("bank_name")
+                ref = det.get("code")
+                sender = det.get("sender")
+                if b_name:
+                    p.text(f"  Bank: {b_name}\n")
+                if ref:
+                    p.text(f"  Ref: {ref}\n")
+                if sender:
+                    p.text(f"  Sender: {sender}\n")
+
         else:
             label = f"{payment_method}"
             if payment_subtype:
@@ -142,7 +161,8 @@ class ESCPOSPrinter:
             p.text(f"Paid via: {label}\n")
 
         p.set(align="center")
-        p.text("\nThank you for shopping!\n\n\n")
+        footer_text = receipt_footer.strip() if receipt_footer and receipt_footer.strip() else "Thank you for shopping!"
+        p.text(f"\n{footer_text}\n\n\n")
 
         if self._backend == "file":
             # For the file backend, we attempt to save the buffer as readable text
@@ -153,6 +173,7 @@ class ESCPOSPrinter:
 
         if self._backend not in ["dummy", "file"]:
             p.cut()
+
 
 _printer_instance: Optional[ESCPOSPrinter] = None
 

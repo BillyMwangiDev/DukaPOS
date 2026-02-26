@@ -5,9 +5,33 @@ Or from repo root: python backend/main.py
 """
 import sys
 import os
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+import logging
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
+
+_log_dir = Path(__file__).resolve().parent / "logs"
+_log_dir.mkdir(exist_ok=True)
+_handlers = [
+    logging.StreamHandler(),
+    RotatingFileHandler(
+        _log_dir / "dukapos.log",
+        maxBytes=5 * 1024 * 1024,  # 5 MB
+        backupCount=3,
+        encoding="utf-8",
+    ),
+]
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=_handlers,
+)
+logger = logging.getLogger("dukapos")
+logger.info("Backend logging started.")
 
 from app.database import create_db_and_tables
 from app.auth_optional import OptionalAPIKeyMiddleware
@@ -29,6 +53,9 @@ from app.routers import (
     reports,
     orders,
     websocket_router,
+    api_keys,
+    discounts,
+    suppliers,
 )
 
 # Production mode: disable Swagger UI for security (frozen exe or DUKAPOS_PRODUCTION=1)
@@ -54,10 +81,13 @@ app = FastAPI(
     redoc_url=None if is_production else "/redoc",
     openapi_url=None if is_production else "/openapi.json",
 )
+# CORS: Allow Electron renderer (app://, file://) and localhost dev server.
+# Note: allow_origins=["*"] with allow_credentials=True is invalid per CORS spec.
+# Since this is an Electron-only app, no browser cookies are used so credentials=False is correct.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -80,6 +110,9 @@ app.include_router(users.router)
 app.include_router(reports.router)
 app.include_router(orders.router)
 app.include_router(websocket_router.router)
+app.include_router(api_keys.router)
+app.include_router(discounts.router)
+app.include_router(suppliers.router)
 
 
 @app.get("/health")
@@ -104,8 +137,11 @@ if __name__ == "__main__":
                 break
         else:
             port = int(config("API_PORT", default=8000))
-    # When run as PyInstaller frozen exe, use app object and no reload
-    if getattr(sys, "frozen", False):
-        uvicorn.run(app, host=host, port=port, reload=False)
-    else:
-        uvicorn.run("main:app", host=host, port=port, reload=True)
+    ssl_certfile = os.environ.get("SSL_CERT") or config("SSL_CERT", default="")
+    ssl_keyfile = os.environ.get("SSL_KEY") or config("SSL_KEY", default="")
+    uvicorn_kwargs = {"host": host, "port": port, "reload": False}
+    if ssl_certfile and ssl_keyfile:
+        uvicorn_kwargs["ssl_certfile"] = ssl_certfile
+        uvicorn_kwargs["ssl_keyfile"] = ssl_keyfile
+        logger.info(f"Starting with TLS (cert={ssl_certfile})")
+    uvicorn.run(app, **uvicorn_kwargs)

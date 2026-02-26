@@ -172,6 +172,32 @@ def list_backups():
     return BackupListResponse(backups=items)
 
 
+@router.get("/health")
+def system_health():
+    """Real-time system diagnostics for DeveloperConsole."""
+    import platform
+    import sys
+    db_path = _get_db_path()
+    db_size_mb = 0.0
+    if db_path and db_path.exists():
+        try:
+            db_size_mb = round(db_path.stat().st_size / 1024 / 1024, 2)
+        except Exception:
+            pass
+    memory_mb = None
+    try:
+        import psutil
+        memory_mb = round(psutil.Process().memory_info().rss / 1024 / 1024, 1)
+    except Exception:
+        pass
+    return {
+        "python_version": sys.version.split()[0],
+        "platform": platform.system(),
+        "db_size_mb": db_size_mb,
+        "memory_mb": memory_mb,
+    }
+
+
 @router.get("/backups/download/{filename:path}")
 def download_backup(filename: str):
     """Download a backup file by filename (must be under backups dir)."""
@@ -179,6 +205,45 @@ def download_backup(filename: str):
     if not backups_dir.exists():
         raise HTTPException(status_code=404, detail="Backups not available")
     path = (backups_dir / filename).resolve()
-    if not path.is_file() or not str(path).startswith(str(backups_dir.resolve())):
+    resolved_backups = backups_dir.resolve()
+    if not path.is_file() or not path.is_relative_to(resolved_backups):
         raise HTTPException(status_code=404, detail="Backup not found")
     return FileResponse(path, filename=path.name)
+
+
+class RestoreRequest(BaseModel):
+    filename: str
+
+
+@router.post("/restore", response_model=BackupResponse)
+def restore_backup(data: RestoreRequest):
+    """
+    Restore database from a backup zip file (SQLite only).
+    The zip must contain a .db file. WARNING: overwrites current database.
+    """
+    if DATABASE_URL.startswith("postgres"):
+        return BackupResponse(ok=False, error="Restore is not supported for PostgreSQL via this endpoint.")
+    backups_dir = _get_backups_dir()
+    zip_path = (backups_dir / data.filename).resolve()
+    resolved_backups = backups_dir.resolve()
+    if not zip_path.is_file() or not zip_path.is_relative_to(resolved_backups):
+        raise HTTPException(status_code=404, detail="Backup not found")
+    db_path = _get_db_path()
+    if not db_path:
+        return BackupResponse(ok=False, error="Cannot determine database path.")
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            db_files = [n for n in zf.namelist() if n.endswith(".db")]
+            if not db_files:
+                return BackupResponse(ok=False, error="No .db file found in backup archive.")
+            db_entry = db_files[0]
+            try:
+                from app.database import engine as db_engine
+                db_engine.dispose()
+            except Exception:
+                pass
+            with zf.open(db_entry) as src, open(db_path, "wb") as dst:
+                dst.write(src.read())
+        return BackupResponse(ok=True, path=str(zip_path))
+    except Exception as e:
+        return BackupResponse(ok=False, error=str(e))

@@ -3,15 +3,19 @@ WebSocket endpoint for real-time POS notifications.
 Clients connect to /ws/{client_id} to receive broadcasts.
 """
 import uuid
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+import logging
+from typing import Optional
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Header, HTTPException
 
 from app.websocket_manager import (
     manager,
     EventType,
     create_event,
 )
+from app.config import config
 
 router = APIRouter(tags=["websocket"])
+logger = logging.getLogger("dukapos.websocket")
 
 
 @router.websocket("/ws/{client_id}")
@@ -96,11 +100,17 @@ def websocket_status():
 async def manual_broadcast(
     event_type: str = Query(..., description="Event type"),
     message: str = Query("", description="Message data"),
+    x_broadcast_secret: Optional[str] = Header(None, alias="X-Broadcast-Secret"),
 ):
     """
     Manually broadcast a message to all connected clients.
-    Useful for testing or admin notifications.
+    Protected by X-Broadcast-Secret header when BROADCAST_SECRET is configured in .env.
     """
+    expected = config("BROADCAST_SECRET", default="").strip()
+    if expected and x_broadcast_secret != expected:
+        logger.warning("Unauthorized broadcast attempt (bad or missing X-Broadcast-Secret)")
+        raise HTTPException(status_code=403, detail="Forbidden: invalid broadcast secret")
+
     event = create_event(event_type, {"message": message})
     sent = await manager.broadcast(event)
     return {

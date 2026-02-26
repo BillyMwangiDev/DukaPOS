@@ -22,6 +22,8 @@
     --input: transparent;
     --input-background: #f3f3f5;
     --ring: #717182;
+    --popover: #ffffff;
+    --popover-foreground: #030213;
     /* Antigravity Tokens */
     --ag-spacing-xs: 0.25rem;
     --ag-spacing-sm: 0.5rem;
@@ -52,7 +54,7 @@
     /* Glassmorphism tokens */
     --glass-bg: rgba(255, 255, 255, 0.7);
     --glass-border: rgba(255, 255, 255, 0.3);
-    --glass-blur: 12px;
+    --glass-blur: 0px;
   }
 
   /* Premium Dark Mode: Microsoft/Google inspired neutral obsidian palette */
@@ -80,6 +82,8 @@
     --input-background: #151921;
     --ring: rgba(16, 185, 129, 0.3);
     /* Subtle emerald ring */
+    --popover: #1a1d23;
+    --popover-foreground: #eef2f6;
     --surface-2: #272c35;
     --success-muted: rgba(16, 185, 129, 0.2);
     /* Brand accents */

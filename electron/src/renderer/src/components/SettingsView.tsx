@@ -29,6 +29,14 @@ import {
   Check,
   Download,
   Clock,
+  FileText,
+  Info,
+  Key,
+  Eye,
+  EyeOff,
+  Zap,
+  RotateCcw,
+  Printer,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -58,6 +66,28 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
   const [contactPhone, setContactPhone] = useState("");
   const [backupLoading, setBackupLoading] = useState(false);
   const [backupHistory, setBackupHistory] = useState<{ filename: string; size_bytes: number; created_at: string }[]>([]);
+  const [restoringBackup, setRestoringBackup] = useState<string | null>(null);
+
+  // Receipt customization
+  const [receiptHeader, setReceiptHeader] = useState("");
+  const [receiptFooter, setReceiptFooter] = useState("Thank you for shopping with us!");
+  const [vatRate, setVatRate] = useState(16.0);
+
+  // Tax & eTIMS export state
+  const [taxStartDate, setTaxStartDate] = useState("");
+  const [taxEndDate, setTaxEndDate] = useState("");
+  const [taxExporting, setTaxExporting] = useState(false);
+  const [etimsSubmitting, setEtimsSubmitting] = useState(false);
+
+  // M-Pesa API configuration state
+  const [mpesaEnv, setMpesaEnv] = useState("sandbox");
+  const [consumerKey, setConsumerKey] = useState("");
+  const [consumerSecret, setConsumerSecret] = useState("");
+  const [darajaPasskey, setDarajaPasskey] = useState("");
+  const [darajaShortcode, setDarajaShortcode] = useState("174379");
+  const [showApiKeys, setShowApiKeys] = useState(false);
+  const [apiKeysLoading, setApiKeysLoading] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
 
   const fetchBackups = useCallback(async () => {
     try {
@@ -92,6 +122,9 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
           setKraPin(typeof data.kra_pin === "string" ? data.kra_pin : "");
           setMpesaTill(typeof data.mpesa_till_number === "string" ? data.mpesa_till_number : "");
           setContactPhone(typeof data.contact_phone === "string" ? data.contact_phone : "");
+          setReceiptHeader(typeof data.receipt_header === "string" ? data.receipt_header : "");
+          setReceiptFooter(typeof data.receipt_footer === "string" ? data.receipt_footer : "Thank you for shopping with us!");
+          setVatRate(typeof data.vat_rate === "number" ? data.vat_rate : 16.0);
         }
       } catch {
         /* keep defaults */
@@ -138,6 +171,9 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
           low_stock_warning_enabled: lowStockAlerts,
           sound_enabled: soundEffects,
           auto_backup_enabled: autoBackup,
+          receipt_header: receiptHeader,
+          receipt_footer: receiptFooter,
+          vat_rate: vatRate,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -167,6 +203,32 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
     }
   };
 
+  const handleRestoreBackup = async (filename: string) => {
+    const confirmed = window.confirm(
+      `Restore from "${filename}"?\n\nThis will OVERWRITE the current database and restart the application. All unsaved data will be lost. Continue?`
+    );
+    if (!confirmed) return;
+    setRestoringBackup(filename);
+    try {
+      const res = await fetch(apiUrl("system/restore"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && (data as { ok?: boolean }).ok) {
+        toast.success("Database restored", { description: "Reloading application..." });
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        toast.error("Restore failed", { description: (data as { error?: string }).error ?? res.statusText });
+      }
+    } catch (e) {
+      toast.error("Restore failed", { description: String(e) });
+    } finally {
+      setRestoringBackup(null);
+    }
+  };
+
   const formatBackupSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -179,6 +241,98 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
       return d.toLocaleDateString(undefined, { dateStyle: "short" }) + " " + d.toLocaleTimeString(undefined, { timeStyle: "short" });
     } catch {
       return iso;
+    }
+  };
+
+  const handleTaxExport = async () => {
+    setTaxExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (taxStartDate) params.set("start_date", taxStartDate);
+      if (taxEndDate) params.set("end_date", taxEndDate);
+      const url = apiUrl(`tax/etims-csv?${params.toString()}`);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(res.statusText);
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition");
+      const filename = disposition?.match(/filename="?([^";]+)"?/)?.[1] ?? "KRA_etims_export.csv";
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast.success("CSV exported", { description: filename });
+    } catch (e) {
+      toast.error("Export failed", { description: String(e) });
+    } finally {
+      setTaxExporting(false);
+    }
+  };
+
+  const fetchApiKeys = useCallback(async () => {
+    try {
+      const res = await fetch(apiUrl("settings/api-keys"));
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && typeof data === "object") {
+        const baseUrl = data.daraja_base_url || "https://sandbox.safaricom.co.ke";
+        setMpesaEnv(baseUrl.includes("sandbox") ? "sandbox" : "production");
+        setConsumerKey(data.consumer_key_masked || "");
+        setConsumerSecret(data.consumer_secret_masked || "");
+        setDarajaPasskey(data.daraja_passkey_masked || "");
+        setDarajaShortcode(data.daraja_shortcode || "174379");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchApiKeys();
+  }, [fetchApiKeys]);
+
+  const handleSaveApiKeys = async () => {
+    setApiKeysLoading(true);
+    try {
+      const baseUrl = mpesaEnv === "sandbox"
+        ? "https://sandbox.safaricom.co.ke"
+        : "https://api.safaricom.co.ke";
+
+      const res = await fetch(apiUrl("settings/api-keys"), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          daraja_base_url: baseUrl,
+          consumer_key: consumerKey.includes("*") ? null : consumerKey,
+          consumer_secret: consumerSecret.includes("*") ? null : consumerSecret,
+          daraja_passkey: darajaPasskey.includes("*") ? null : darajaPasskey,
+          daraja_shortcode: darajaShortcode,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      toast.success("API keys saved", { description: "M-Pesa configuration updated successfully." });
+      fetchApiKeys();
+    } catch (e) {
+      toast.error("Save failed", { description: String(e) });
+    } finally {
+      setApiKeysLoading(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    try {
+      const res = await fetch(apiUrl("settings/api-keys/test"), { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        toast.success("Connection successful", { description: data.message });
+      } else {
+        toast.error("Connection failed", { description: data.message || res.statusText });
+      }
+    } catch (e) {
+      toast.error("Test failed", { description: String(e) });
+    } finally {
+      setTestingConnection(false);
     }
   };
 
@@ -352,6 +506,308 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
         </CardContent>
       </Card>
 
+      {/* Receipt Customization */}
+      <Card className="glass shadow-lg border-white/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Printer className="size-5" />
+            Receipt Customization
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Customize what appears on printed receipts
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Receipt Header</Label>
+            <p className="text-xs text-muted-foreground mb-1">Shown above the item list on every receipt (e.g. your address, tagline)</p>
+            <textarea
+              value={receiptHeader}
+              onChange={(e) => setReceiptHeader(e.target.value)}
+              rows={3}
+              placeholder="e.g. 123 Moi Avenue, Nairobi | Tel: 0712 345 678"
+              className="mt-1 w-full rounded-md border border-input bg-muted/50 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+            />
+          </div>
+          <div>
+            <Label>Receipt Footer</Label>
+            <p className="text-xs text-muted-foreground mb-1">Shown below items on every receipt (e.g. thank you message, return policy)</p>
+            <textarea
+              value={receiptFooter}
+              onChange={(e) => setReceiptFooter(e.target.value)}
+              rows={3}
+              placeholder="Thank you for shopping with us!"
+              className="mt-1 w-full rounded-md border border-input bg-muted/50 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+            />
+          </div>
+          <div className="w-48">
+            <Label>VAT Rate (%)</Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              step={0.1}
+              value={vatRate}
+              onChange={(e) => setVatRate(Number(e.target.value))}
+              className="mt-1 bg-muted/50 font-mono"
+            />
+          </div>
+          <Button
+            className="bg-[#43B02A] dark:bg-primary hover:bg-[#3a9824] dark:hover:opacity-90 text-white dark:text-primary-foreground"
+            onClick={handleSaveShop}
+          >
+            <Save className="mr-2 size-4" />
+            Save Receipt Settings
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Tax & eTIMS Export */}
+      <Card className="glass shadow-lg border-white/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="size-5" />
+            Tax & eTIMS Export
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Export tax records for Kenya Revenue Authority compliance
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Card className="border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-800">
+            <CardContent className="pt-6">
+              <div className="flex gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
+                  <Info className="size-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-emerald-800 dark:text-emerald-200">eTIMS Integration Ready</h3>
+                  <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">
+                    Your sales data is automatically formatted for KRA eTIMS submission. Export the CSV file and upload it directly to the eTIMS portal.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex flex-wrap items-end gap-4">
+            <div>
+              <Label>Start Date</Label>
+              <Input
+                type="date"
+                value={taxStartDate}
+                onChange={(e) => setTaxStartDate(e.target.value)}
+                className="mt-1 w-40 bg-muted/50"
+              />
+            </div>
+            <div>
+              <Label>End Date</Label>
+              <Input
+                type="date"
+                value={taxEndDate}
+                onChange={(e) => setTaxEndDate(e.target.value)}
+                className="mt-1 w-40 bg-muted/50"
+              />
+            </div>
+            <Button
+              className="bg-[#43B02A] dark:bg-primary hover:bg-[#3a9824] dark:hover:opacity-90 text-white dark:text-primary-foreground"
+              disabled={taxExporting}
+              onClick={handleTaxExport}
+            >
+              <Download className="mr-2 size-4" />
+              {taxExporting ? "Exporting..." : "Export KRA eTIMS CSV"}
+            </Button>
+          </div>
+
+          <div className="rounded-lg border p-4 bg-muted/20">
+            <h4 className="font-medium mb-2">KRA eTIMS Submission Guidelines</h4>
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p>1. Download the CSV file for your desired date range.</p>
+              <p>2. Log in to the KRA eTIMS portal at <a href="https://etims.kra.go.ke" target="_blank" rel="noopener noreferrer" className="text-[#43B02A] underline">etims.kra.go.ke</a>.</p>
+              <p>3. Navigate to &quot;Bulk Upload&quot; section.</p>
+              <p>4. Upload the CSV file and submit for processing.</p>
+              <p>5. Wait for KRA confirmation email (usually within 24 hours).</p>
+            </div>
+          </div>
+
+          {/* Live eTIMS submission — only shown when enabled in connection settings */}
+          {etimsEnabled && (
+            <div className="rounded-lg border border-blue-200 dark:border-blue-800 p-4 bg-blue-50/50 dark:bg-blue-950/20 space-y-3">
+              <div className="flex items-center gap-2">
+                <Zap className="size-4 text-blue-600 dark:text-blue-400" />
+                <h4 className="font-medium text-blue-800 dark:text-blue-200">Live eTIMS Submission</h4>
+              </div>
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                Direct API submission requires <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">ENABLE_ETIMS=true</code> in backend <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">.env</code> file.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-blue-400 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900"
+                disabled={etimsSubmitting || !taxStartDate || !taxEndDate}
+                onClick={async () => {
+                  if (!taxStartDate || !taxEndDate) {
+                    toast.error("Select date range above first");
+                    return;
+                  }
+                  setEtimsSubmitting(true);
+                  try {
+                    const params = new URLSearchParams({ start_date: taxStartDate, end_date: taxEndDate });
+                    const res = await fetch(apiUrl(`tax/submit-to-etims?${params.toString()}`), { method: "POST" });
+                    const data = await res.json().catch(() => ({}));
+                    if (res.ok) {
+                      toast.success("eTIMS submission successful");
+                    } else {
+                      toast.error("eTIMS submission failed", { description: (data as { detail?: string }).detail ?? res.statusText });
+                    }
+                  } catch (e) {
+                    toast.error("eTIMS submission error", { description: String(e) });
+                  } finally {
+                    setEtimsSubmitting(false);
+                  }
+                }}
+              >
+                <Zap className="mr-2 size-4" />
+                {etimsSubmitting ? "Submitting..." : "Submit to KRA"}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* M-Pesa API Configuration */}
+      <Card className="glass shadow-lg border-white/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Key className="size-5" />
+            M-Pesa API Configuration
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Configure Daraja API credentials for M-Pesa payments
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Environment Selector */}
+          <div>
+            <Label>Environment</Label>
+            <div className="flex gap-4 mt-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="mpesa-env"
+                  checked={mpesaEnv === "sandbox"}
+                  onChange={() => setMpesaEnv("sandbox")}
+                  className="rounded-full"
+                />
+                <span className="text-sm">Sandbox (Testing)</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="mpesa-env"
+                  checked={mpesaEnv === "production"}
+                  onChange={() => setMpesaEnv("production")}
+                  className="rounded-full"
+                />
+                <span className="text-sm">Production (Live)</span>
+              </label>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {mpesaEnv === "sandbox"
+                ? "Using sandbox.safaricom.co.ke for testing"
+                : "Using api.safaricom.co.ke for live transactions"}
+            </p>
+          </div>
+
+          {/* API Credentials */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Consumer Key</Label>
+              <div className="relative">
+                <Input
+                  type={showApiKeys ? "text" : "password"}
+                  value={consumerKey}
+                  onChange={(e) => setConsumerKey(e.target.value)}
+                  className="mt-1 bg-muted/50 font-mono pr-10"
+                  placeholder="Enter consumer key"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKeys(!showApiKeys)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 mt-0.5 text-muted-foreground hover:text-foreground"
+                >
+                  {showApiKeys ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <Label>Consumer Secret</Label>
+              <Input
+                type={showApiKeys ? "text" : "password"}
+                value={consumerSecret}
+                onChange={(e) => setConsumerSecret(e.target.value)}
+                className="mt-1 bg-muted/50 font-mono"
+                placeholder="Enter consumer secret"
+              />
+            </div>
+
+            <div>
+              <Label>Passkey</Label>
+              <Input
+                type={showApiKeys ? "text" : "password"}
+                value={darajaPasskey}
+                onChange={(e) => setDarajaPasskey(e.target.value)}
+                className="mt-1 bg-muted/50 font-mono"
+                placeholder="Enter passkey"
+              />
+            </div>
+
+            <div>
+              <Label>Business Shortcode</Label>
+              <Input
+                type="text"
+                value={darajaShortcode}
+                onChange={(e) => setDarajaShortcode(e.target.value)}
+                className="mt-1 bg-muted/50 font-mono"
+                placeholder="174379"
+              />
+            </div>
+          </div>
+
+          {/* Info Banner */}
+          <div className="rounded-lg border bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800 p-4">
+            <div className="flex gap-3">
+              <Info className="size-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-700 dark:text-blue-300">
+                <p className="font-medium mb-1">Secure Credential Storage</p>
+                <p>Your API credentials are stored in the .env file and masked when displayed. Only update fields you want to change.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleTestConnection}
+              disabled={testingConnection}
+            >
+              <Zap className="mr-2 size-4" />
+              {testingConnection ? "Testing..." : "Test Connection"}
+            </Button>
+            <Button
+              className="bg-[#43B02A] dark:bg-primary hover:bg-[#3a9824] dark:hover:opacity-90 text-white dark:text-primary-foreground"
+              onClick={handleSaveApiKeys}
+              disabled={apiKeysLoading}
+            >
+              <Save className="mr-2 size-4" />
+              {apiKeysLoading ? "Saving..." : "Save API Keys"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Automatic Backups */}
       <Card className="glass shadow-lg border-white/5">
         <CardHeader>
@@ -458,16 +914,31 @@ export function SettingsView({ darkMode = false, onToggleDarkMode, onShopSetting
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <a
-                        href={apiUrl("system/backups/download/" + encodeURIComponent(row.filename))}
-                        download={row.filename}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center size-8 rounded-md hover:bg-accent"
-                        title="Download backup"
-                      >
-                        <Download className="size-4" />
-                      </a>
+                      <div className="flex items-center justify-end gap-1">
+                        <a
+                          href={apiUrl("system/backups/download/" + encodeURIComponent(row.filename))}
+                          download={row.filename}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center size-8 rounded-md hover:bg-accent"
+                          title="Download backup"
+                        >
+                          <Download className="size-4" />
+                        </a>
+                        <button
+                          type="button"
+                          title="Restore from this backup"
+                          disabled={restoringBackup !== null}
+                          onClick={() => handleRestoreBackup(row.filename)}
+                          className="inline-flex items-center justify-center size-8 rounded-md hover:bg-accent text-amber-600 dark:text-amber-400 disabled:opacity-50"
+                        >
+                          {restoringBackup === row.filename ? (
+                            <span className="size-4 animate-spin border-2 border-current border-t-transparent rounded-full" />
+                          ) : (
+                            <RotateCcw className="size-4" />
+                          )}
+                        </button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

@@ -52,9 +52,9 @@ Page custom nsis_prompt_mpesa_page_func
   ${NSD_GetText} $MpesaKeyPasskey $2
   ${NSD_GetText} $MpesaKeyShortcode_Handle $3
 
-  # Write to .env file in installation directory
-  # Note: $INSTDIR is where the app is installed
-  FileOpen $4 "$INSTDIR\.env" w
+  # Write .env to resources\ (same dir as server.exe and its cwd at runtime)
+  # backend/app/config.py reads Path(sys.executable).parent/.env when frozen
+  FileOpen $4 "$INSTDIR\resources\.env" w
   FileWrite $4 "DATABASE_URL=sqlite:///./dukapos.db$\r$\n"
   FileWrite $4 "MPESA_CONSUMER_KEY=$0$\r$\n"
   FileWrite $4 "MPESA_CONSUMER_SECRET=$1$\r$\n"

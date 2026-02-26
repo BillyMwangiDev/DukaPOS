@@ -11,9 +11,17 @@ from app.models import HeldOrder, Staff
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
+
+class HeldItem(BaseModel):
+    product_id: int
+    quantity: int
+    price: float
+    name: str = ""
+
+
 class HoldOrderRequest(BaseModel):
     staff_id: int = 1
-    items: list[dict] = []
+    items: list[HeldItem] = []
     total_gross: float = 0.0
     notes: Optional[str] = None
 
@@ -29,7 +37,7 @@ class HoldOrderResponse(BaseModel):
 class HeldOrderRead(BaseModel):
     id: int
     staff_id: int
-    items: list[dict]
+    items: list[HeldItem]
     total_gross: float
     notes: str = ""
     created_at: str
@@ -42,7 +50,11 @@ def hold_order(data: HoldOrderRequest):
         staff = session.get(Staff, data.staff_id)
         if not staff:
             raise HTTPException(status_code=400, detail="Invalid staff_id")
-        items_json = json.dumps(data.items)
+        
+        # Serialize list of models to JSON string
+        items_data = [item.model_dump() for item in data.items]
+        items_json = json.dumps(items_data)
+        
         held = HeldOrder(
             staff_id=data.staff_id,
             items_json=items_json,
@@ -90,7 +102,8 @@ def get_held_order(order_id: int, staff_id: int = Query(1)):
         if held.staff_id != staff_id:
             raise HTTPException(status_code=403, detail="Not your held order")
         try:
-            items = json.loads(held.items_json) if held.items_json else []
+            items_raw = json.loads(held.items_json) if held.items_json else []
+            items = [HeldItem(**item) for item in items_raw]
         except Exception:
             items = []
         return HeldOrderRead(
@@ -108,8 +121,10 @@ def delete_held_order(order_id: int, staff_id: int = Query(1)):
     """Remove a held order."""
     with Session(engine) as session:
         held = session.get(HeldOrder, order_id)
+        # Idempotency: if not found, return 204 (or 404 if preferred, strict API says 404)
         if not held:
-            raise HTTPException(status_code=404, detail="Held order not found")
+            return None 
+            
         if held.staff_id != staff_id:
             raise HTTPException(status_code=403, detail="Not your held order")
         session.delete(held)

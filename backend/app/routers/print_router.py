@@ -5,9 +5,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 
 from app.printer_service import get_printer, run_in_printer_thread
-
-PRINTER_OFFLINE = "PRINTER_OFFLINE"
-TIMEOUT_SEC = 8
+from app.routers.hardware import PRINTER_OFFLINE, TIMEOUT_SEC
 
 router = APIRouter(prefix="/print", tags=["print"])
 
@@ -46,7 +44,9 @@ def _do_print_receipt(
     payment_subtype: Optional[str] = None,
     kra_pin: Optional[str] = None,
     contact_phone: Optional[str] = None,
-    payments: Optional[List[dict]] = None
+    payments: Optional[List[dict]] = None,
+    receipt_header: str = "",
+    receipt_footer: str = "Thank you for shopping!",
 ) -> None:
     printer = get_printer()
     printer.print_receipt(
@@ -58,7 +58,9 @@ def _do_print_receipt(
         payment_subtype=payment_subtype,
         kra_pin=kra_pin,
         contact_phone=contact_phone,
-        payments=payments
+        payments=payments,
+        receipt_header=receipt_header,
+        receipt_footer=receipt_footer,
     )
 
 
@@ -68,20 +70,45 @@ def _do_kick_drawer() -> None:
 
 @router.post("/receipt")
 def print_receipt(payload: Optional[ReceiptPayload] = Body(None)):
-    """Print receipt via ESC/POS (plain text, no PDF). Returns 200 with warning PRINTER_OFFLINE if printer unavailable. Empty body accepted (API/test compatibility)."""
+    """Print receipt via ESC/POS. Returns 200 with warning PRINTER_OFFLINE if printer unavailable."""
     req = payload if payload is not None else ReceiptPayload()
+
+    # Fetch settings from DB to override defaults/payload if needed
+    from app.database import engine
+    from app.models import StoreSettings
+    from sqlmodel import Session, select
+
+    with Session(engine) as session:
+        settings = session.exec(select(StoreSettings)).first()
+        if settings:
+            shop_name = settings.shop_name
+            station_id = settings.station_id
+            contact_phone = settings.contact_phone
+            kra_pin = settings.kra_pin
+            receipt_header = settings.receipt_header or ""
+            receipt_footer = settings.receipt_footer or "Thank you for shopping!"
+        else:
+            shop_name = req.shop_name
+            station_id = req.station_id
+            contact_phone = req.contact_phone
+            kra_pin = req.kra_pin
+            receipt_header = ""
+            receipt_footer = "Thank you for shopping!"
+
     items = [{"name": i.name, "qty": i.quantity, "price": i.price} for i in req.items]
     future = run_in_printer_thread(
         _do_print_receipt,
-        req.shop_name,
+        shop_name,
         items,
         req.total_gross,
         req.payment_method,
-        req.station_id,
+        station_id,
         req.payment_subtype,
-        req.kra_pin,
-        req.contact_phone,
-        req.payments
+        kra_pin,
+        contact_phone,
+        req.payments or [],
+        receipt_header,
+        receipt_footer,
     )
     try:
         future.result(timeout=TIMEOUT_SEC)

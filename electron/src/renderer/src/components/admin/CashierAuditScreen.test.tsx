@@ -51,25 +51,25 @@ const mockCashierPerformanceResponse = {
       timestamp: "2026-01-31T10:30:00Z",
       date: "2026-01-31",
       time: "10:30:00",
-      receipt_number: "TXN001",
+      receipt_id: "TXN001",
       item_name: "Test Product",
       quantity: 2,
       unit_price: 100.0,
       total_price: 200.0,
-      payment_method: "CASH",
-      transaction_id: 1,
+      payment_type: "CASH",
+      db_id: 1,
     },
     {
       timestamp: "2026-01-31T11:15:00Z",
       date: "2026-01-31",
       time: "11:15:00",
-      receipt_number: "TXN002",
+      receipt_id: "TXN002",
       item_name: "Another Product",
       quantity: 1,
       unit_price: 150.0,
       total_price: 150.0,
-      payment_method: "MPESA",
-      transaction_id: 2,
+      payment_type: "MPESA",
+      db_id: 2,
     },
   ],
 };
@@ -83,13 +83,13 @@ describe("CashierAuditScreen", () => {
     mockFetch.mockReset();
     // Default: return cashiers list first
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes("/reports/cashiers")) {
+      if (url.includes("/reports/staff-list")) {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve(mockCashiers),
         });
       }
-      if (url.includes("/reports/cashier-performance")) {
+      if (url.includes("/reports/staff-performance")) {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve(mockCashierPerformanceResponse),
@@ -118,7 +118,7 @@ describe("CashierAuditScreen", () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/reports/cashiers")
+        expect.stringContaining("/reports/staff-list")
       );
     });
 
@@ -156,13 +156,13 @@ describe("CashierAuditScreen Data Display", () => {
   beforeEach(() => {
     mockFetch.mockReset();
     mockFetch.mockImplementation((url: string) => {
-      if (url.includes("/reports/cashiers")) {
+      if (url.includes("/reports/staff-list")) {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve(mockCashiers),
         });
       }
-      if (url.includes("/reports/cashier-performance")) {
+      if (url.includes("/reports/staff-performance")) {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({

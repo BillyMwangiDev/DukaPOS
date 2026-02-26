@@ -11,11 +11,33 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { apiUrl } from "@/lib/api";
 import { formatKsh } from "@/lib/format";
 import { toast } from "sonner";
 import { useWebSocket, EventType } from "@/hooks/useWebSocket";
+
+const KENYAN_BANKS = [
+  "KCB Bank",
+  "Equity Bank",
+  "Co-operative Bank",
+  "Absa Bank Kenya",
+  "NCBA Bank",
+  "Standard Chartered Kenya",
+  "Family Bank",
+  "DTB Kenya",
+  "I&M Bank",
+  "SBM Bank Kenya",
+  "Visa/Card (Manual)",
+];
+
 
 interface Customer {
   id: number;
@@ -39,8 +61,6 @@ interface PaymentModalProps {
   initialCashTendered?: string;
   /** M-Pesa Buy Goods till number (from store settings). */
   mpesaTillNumber?: string;
-  /** M-Pesa Paybill number (from store settings). */
-  mpesaPaybillNumber?: string;
 }
 
 export function PaymentModal({
@@ -53,7 +73,6 @@ export function PaymentModal({
   onVerifyStatus,
   initialCashTendered,
   mpesaTillNumber = "",
-  mpesaPaybillNumber: _mpesaPaybillNumber = "",
 }: PaymentModalProps) {
   const [activeTab, setActiveTab] = useState<"cash" | "mobile" | "credit">(defaultTab === "mpesa" ? "mobile" : defaultTab);
   const [payments, setPayments] = useState<{ method: string; amount: number; details?: any }[]>([]);
@@ -66,7 +85,13 @@ export function PaymentModal({
   const [creditSearch, setCreditSearch] = useState("");
   const [creditCustomers, setCreditCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [_creditSearching, setCreditSearching] = useState(false);
+
+  // Bank fields
+  const [bankName, setBankName] = useState("");
+  const [bankRefCode, setBankRefCode] = useState("");
+  const [bankSenderName, setBankSenderName] = useState("");
+  const [bankConfirmed, setBankConfirmed] = useState(false);
+
 
   // WebSocket for real-time M-Pesa payment notifications
   const { subscribe, isConnected } = useWebSocket();
@@ -156,7 +181,6 @@ export function PaymentModal({
       setCreditCustomers([]);
       return;
     }
-    setCreditSearching(true);
     try {
       const res = await fetch(apiUrl(`customers?q=${encodeURIComponent(q.trim())}`));
       if (!res.ok) throw new Error("Search failed");
@@ -164,8 +188,6 @@ export function PaymentModal({
       setCreditCustomers(list);
     } catch {
       setCreditCustomers([]);
-    } finally {
-      setCreditSearching(false);
     }
   }, []);
 
@@ -185,14 +207,24 @@ export function PaymentModal({
     toast.success(`Added ${formatKsh(actualPayment)} cash payment`);
   };
 
+  // Kenyan phone number: 07XXXXXXXX, 01XXXXXXXX, +2547XXXXXXXX, 2547XXXXXXXX
+  const KENYA_PHONE_RE = /^(?:\+?254|0)[17]\d{8}$/;
+
   const handleMpesaPayment = async () => {
-    if (phoneNumber.length < 10) return;
+    if (isProcessing) return;
+    const trimmedPhone = phoneNumber.replace(/\s+/g, "");
+    if (!KENYA_PHONE_RE.test(trimmedPhone)) {
+      toast.error("Invalid phone number", {
+        description: "Enter a valid Kenyan M-Pesa number (e.g. 0712345678 or 254712345678)",
+      });
+      return;
+    }
     setIsProcessing(true);
     try {
       const res = await fetch(apiUrl("mpesa/stk-push"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phoneNumber, amount: remainingBalance }), // Request remaining balance
+        body: JSON.stringify({ phone: trimmedPhone, amount: remainingBalance }), // Request remaining balance
       });
       if (res.status === 503) {
         setIsProcessing(false);
@@ -227,10 +259,13 @@ export function PaymentModal({
     setCheckoutRequestId(null);
     setIsProcessing(false);
     setWaitingForBuyGoods(false);
-    setCreditSearch("");
-    setCreditCustomers([]);
     setSelectedCustomer(null);
+    setBankName("");
+    setBankRefCode("");
+    setBankSenderName("");
+    setBankConfirmed(false);
     onClose();
+
   };
 
   const newBalanceAfterCredit = selectedCustomer
@@ -269,7 +304,8 @@ export function PaymentModal({
     });
   };
 
-  const handleManualMobilePayment = (subtype: string) => {
+  const handleManualElectronicPayment = (subtype: string) => {
+    // This is primarily for M-Pesa manual confirm
     setPayments(prev => [...prev, {
       method: "MOBILE",
       amount: remainingBalance,
@@ -278,9 +314,37 @@ export function PaymentModal({
     toast.success(`Registered ${subtype} payment`);
   };
 
+  const handleAddBankPayment = () => {
+    if (!bankName) return toast.error("Please select a bank");
+    if (!bankConfirmed) return toast.error("Please confirm payment received");
+
+    const isCard = bankName === "Visa/Card (Manual)";
+    setPayments(prev => [...prev, {
+      method: "BANK",
+      amount: remainingBalance,
+      details: {
+        subtype: isCard ? "Visa/Card" : "Bank Transfer",
+        bank_name: bankName,
+        code: bankRefCode,
+        sender: bankSenderName,
+        confirmed: true,
+        source: "manual"
+      }
+    }]);
+
+    // Reset bank form
+    setBankName("");
+    setBankRefCode("");
+    setBankSenderName("");
+    setBankConfirmed(false);
+
+    toast.success(`Registered ${bankName} payment`);
+  };
+
   return (
+
     <Dialog open={open} onOpenChange={(o) => !o && resetAndClose()}>
-      <DialogContent className="sm:max-w-md glass animate-in shadow-2xl border-white/10 no-scrollbar">
+      <DialogContent className="sm:max-w-md glass animate-in shadow-2xl border-white/10">
         <DialogHeader>
           <DialogTitle>Complete Payment</DialogTitle>
           <DialogDescription className="flex justify-between items-center text-foreground font-bold text-lg mt-2">
@@ -477,7 +541,7 @@ export function PaymentModal({
                     </div>
                   )}
                   <div className="pt-2">
-                    <Button variant="ghost" size="sm" className="text-[10px] uppercase" onClick={() => handleManualMobilePayment("M-Pesa")}>
+                    <Button variant="ghost" size="sm" className="text-[10px] uppercase" onClick={() => handleManualElectronicPayment("M-Pesa")}>
                       Manual Confirm (M-Pesa)
                     </Button>
                   </div>
@@ -485,20 +549,80 @@ export function PaymentModal({
               )}
 
               {mpesaMode === "bank" && (
-                <div className="space-y-3">
-                  <div className="rounded-lg border bg-muted/30 p-4 text-center">
-                    <p className="text-xs font-bold uppercase text-muted-foreground">Bank Transfer / Card PDQ</p>
-                    <p className="text-sm mt-2 text-muted-foreground">Select provider to register manual payment</p>
+                <div className="space-y-4 pt-2">
+                  <div className="rounded-lg border bg-muted/30 p-4">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground mb-4">Bank Transfer Details</p>
+
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase">Select Bank</Label>
+                        <Select value={bankName} onValueChange={setBankName}>
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Select a Kenyan Bank" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {KENYAN_BANKS.map(bank => (
+                              <SelectItem key={bank} value={bank}>{bank}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-bold uppercase">Ref Code</Label>
+                          <Input
+                            value={bankRefCode}
+                            onChange={e => setBankRefCode(e.target.value)}
+                            className="h-10 uppercase font-mono text-xs"
+                            placeholder="TRANS CODE"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-bold uppercase">Sender</Label>
+                          <Input
+                            value={bankSenderName}
+                            onChange={e => setBankSenderName(e.target.value)}
+                            className="h-10 text-xs"
+                            placeholder="JOHN DOE"
+                          />
+                        </div>
+                      </div>
+
+                      {bankName === "Visa/Card (Manual)" && (
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded p-2">
+                          Manual confirmation only — verify on your card terminal receipt before confirming.
+                        </p>
+                      )}
+
+                      <div className="flex items-center space-x-2 pt-2 border-t mt-4">
+                        <input
+                          type="checkbox"
+                          id="bank-confirm"
+                          checked={bankConfirmed}
+                          onChange={e => setBankConfirmed(e.target.checked)}
+                          className="size-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <Label htmlFor="bank-confirm" className="text-xs font-medium cursor-pointer text-emerald-600 dark:text-emerald-400">
+                          {bankName === "Visa/Card (Manual)"
+                            ? "Confirm card payment approved on terminal"
+                            : "Confirm payment received in bank app/SMS"}
+                        </Label>
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {["Bank Transfer", "Equity", "KCB", "Absa", "Visa/Card"].map(bank => (
-                      <Button key={bank} variant="outline" size="sm" onClick={() => handleManualMobilePayment(bank)}>
-                        {bank}
-                      </Button>
-                    ))}
-                  </div>
+
+                  <Button
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                    size="lg"
+                    onClick={handleAddBankPayment}
+                    disabled={!bankName || !bankConfirmed || remainingBalance <= 0}
+                  >
+                    Register Bank Payment ({formatKsh(remainingBalance)})
+                  </Button>
                 </div>
               )}
+
             </div>
           </TabsContent>
 

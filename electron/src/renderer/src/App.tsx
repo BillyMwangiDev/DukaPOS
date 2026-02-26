@@ -8,10 +8,8 @@ import { Toaster, toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
+
 import { PinPadModal } from "@/components/PinPadModal";
-import { useIdleTimeout, DEFAULT_IDLE_TIMEOUT_MS, DEFAULT_WARNING_MS } from "@/hooks/useIdleTimeout";
-import { IdleWarningModal } from "@/components/IdleWarningModal";
-import { ShiftLockScreen } from "@/components/ShiftLockScreen";
 import { ZeroScrollDashboard } from "@/components/ZeroScrollDashboard";
 import { Header } from "@/components/Header";
 import { ProductGrid } from "@/components/ProductGrid";
@@ -21,6 +19,9 @@ import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { LoginScreen, getStoredUser, setStoredUser, type LoggedInUser } from "@/components/LoginScreen";
 import { CloseShiftModal } from "@/components/CloseShiftModal";
 import { HeldOrdersDialog } from "@/components/HeldOrdersDialog";
+import { ShiftLockScreen } from "@/components/ShiftLockScreen";
+import { useIdleTimeout } from "@/hooks/useIdleTimeout";
+import { useWebSocket, EventType, type InventoryUpdateEvent } from "@/hooks/useWebSocket";
 
 type View = "checkout" | "inventory" | "admin";
 
@@ -34,13 +35,15 @@ interface Product {
   min_stock_alert: number;
   wholesale_price?: number | null;
   wholesale_threshold?: number | null;
+  item_discount_type?: "percent" | "fixed" | null;
+  item_discount_value?: number | null;
+  item_discount_expiry?: string | null;
 }
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<LoggedInUser | null>(() => getStoredUser());
   const [currentView, setCurrentView] = useState<View>("checkout");
   const [darkMode, setDarkMode] = useState(false);
-  const [isLocked, setIsLocked] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "mpesa" | "credit">("cash");
   const [isOnline, setIsOnline] = useState(
@@ -55,6 +58,8 @@ export default function App() {
   const [pendingOutOfStockProduct, setPendingOutOfStockProduct] = useState<Product | null>(null);
   const [pendingPriceOverride, setPendingPriceOverride] = useState<{ id: string; price: number } | null>(null);
   const [isHeldOrdersOpen, setIsHeldOrdersOpen] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const [discountAmount, setDiscountAmount] = useState(0);
   const [storeSettings, setStoreSettings] = useState<{
     shop_name: string;
     station_id: string;
@@ -93,11 +98,27 @@ export default function App() {
   } = useCart();
   const { subtotalGross, totalNet, totalTax, totalGross } = useCartTotals();
 
-  const { isWarning, secondsRemaining, reset: resetIdle, resume: resumeIdle } = useIdleTimeout({
-    timeoutMs: DEFAULT_IDLE_TIMEOUT_MS,
-    warningMs: DEFAULT_WARNING_MS,
+  // WebSocket: real-time backend events (M-Pesa, inventory, etc.)
+  const [productRefetchKey, setProductRefetchKey] = useState(0);
+  const { isConnected: isWsConnected, subscribe } = useWebSocket({
+    autoConnect: !!currentUser,
+  });
+
+  // Multi-PC sync: refresh product grid when another terminal updates stock
+  useEffect(() => {
+    const unsub = subscribe(EventType.INVENTORY_UPDATED, (event) => {
+      const d = event.data as InventoryUpdateEvent;
+      toast.info(`Stock updated: ${d.product_name} → ${d.new_quantity} units`, { duration: 3000 });
+      setProductRefetchKey((k) => k + 1);
+    });
+    return unsub;
+  }, [subscribe]);
+
+  // Idle lock: auto-lock terminal after 5 minutes of inactivity
+  const { pause: pauseIdle, resume: resumeIdle } = useIdleTimeout({
+    enabled: !!currentUser && !isLocked,
     onIdle: () => setIsLocked(true),
-    enabled: !!currentUser && !isLocked && !isPaymentModalOpen,
+    onWarning: () => toast.warning("Session locking in 30 seconds due to inactivity"),
   });
 
   useEffect(() => {
@@ -270,6 +291,9 @@ export default function App() {
       priceGross: product.price_selling,
       priceWholesale: product.wholesale_price ?? undefined,
       wholesaleThreshold: product.wholesale_threshold ?? undefined,
+      itemDiscountType: product.item_discount_type ?? null,
+      itemDiscountValue: product.item_discount_value ?? null,
+      itemDiscountExpiry: product.item_discount_expiry ?? null,
     });
     setLastScannedId(`p-${product.id}`);
     setTimeout(() => setLastScannedId(null), 2000);
@@ -291,6 +315,9 @@ export default function App() {
       priceGross: product.price_selling,
       priceWholesale: product.wholesale_price ?? undefined,
       wholesaleThreshold: product.wholesale_threshold ?? undefined,
+      itemDiscountType: product.item_discount_type ?? null,
+      itemDiscountValue: product.item_discount_value ?? null,
+      itemDiscountExpiry: product.item_discount_expiry ?? null,
     });
     setLastScannedId(`p-${product.id}`);
     setTimeout(() => setLastScannedId(null), 2000);
@@ -308,19 +335,37 @@ export default function App() {
     return true;
   };
 
+  const validateSale = () => {
+    if (items.length === 0) {
+      toast.error("Cart is empty", { description: "Add items before payment." });
+      return false;
+    }
+    if (totalGross <= 0 && !returnMode) {
+      toast.error("Invalid total", { description: "Total amount must be greater than zero." });
+      return false;
+    }
+    return true;
+  };
+
   const handleCashPayment = () => {
     if (!requireShiftForPayment()) return;
+    if (!validateSale()) return;
     setPaymentMethod("cash");
+    pauseIdle();
     setIsPaymentModalOpen(true);
   };
   const handleMpesaPayment = () => {
     if (!requireShiftForPayment()) return;
+    if (!validateSale()) return;
     setPaymentMethod("mpesa");
+    pauseIdle();
     setIsPaymentModalOpen(true);
   };
   const handleCreditPayment = () => {
     if (!requireShiftForPayment()) return;
+    if (!validateSale()) return;
     setPaymentMethod("credit");
+    pauseIdle();
     setIsPaymentModalOpen(true);
   };
 
@@ -388,8 +433,7 @@ export default function App() {
           }),
         });
         if (!txRes.ok) {
-          const err = await txRes.text();
-          toast.error("Transaction not saved", { description: err || txRes.statusText });
+          toast.error("Transaction not saved", { description: "Please retry or contact support." });
         }
       } catch (e) {
         toast.error("Transaction failed", { description: String(e) });
@@ -426,7 +470,7 @@ export default function App() {
   const handleVerifyStatus = useCallback(
     async (checkoutId: string): Promise<boolean> => {
       try {
-        const res = await fetch(apiUrl(`api/v1/payments/verify/${encodeURIComponent(checkoutId)}`));
+        const res = await fetch(apiUrl(`payments/verify/${encodeURIComponent(checkoutId)}`));
         const data = (await res.json().catch(() => ({}))) as {
           success?: boolean;
           result_desc?: string;
@@ -459,6 +503,9 @@ export default function App() {
     let primaryType = "CASH";
     let primarySubtype: string | undefined = undefined;
     let referenceCode: string | undefined = undefined;
+    let bankName: string | undefined = undefined;
+    let bankSender: string | undefined = undefined;
+    let bankConfirmed = false;
 
     if (paymentList.length > 1) {
       primaryType = "SPLIT";
@@ -466,12 +513,20 @@ export default function App() {
       primaryType = paymentList[0].method;
       primarySubtype = paymentList[0].details?.subtype;
       referenceCode = paymentList[0].details?.code;
+      bankName = paymentList[0].details?.bank_name;
+      bankSender = paymentList[0].details?.sender;
+      bankConfirmed = paymentList[0].details?.confirmed || false;
     } else {
+
       // Fallback for legacy calls if any
       primaryType = method === "mpesa" ? "MOBILE" : method.toUpperCase();
     }
 
-    const customerId = details?.customer_id as number | undefined;
+    let customerId = details?.customer_id as number | undefined;
+    if (!customerId && paymentList.length > 0) {
+      const creditPay = paymentList.find((p: any) => p.method === "CREDIT");
+      if (creditPay) customerId = creditPay.details?.customer_id;
+    }
 
     try {
       const txRes = await fetch(apiUrl("transactions"), {
@@ -487,12 +542,17 @@ export default function App() {
           payment_details_json: paymentList.length > 1 ? JSON.stringify(paymentList) : null,
           origin_station: storeSettings.station_id || "POS-01",
           use_local_invoice: !getEtimsEnabled(),
+          bank_name: bankName ?? null,
+          bank_sender_name: bankSender ?? null,
+          bank_confirmed: bankConfirmed,
+          bank_confirmation_timestamp: bankConfirmed ? new Date().toISOString() : null,
           items: items.map((i) => ({
             product_id: i.productId,
             quantity: i.quantity,
             price_at_moment: getLinePriceGross(i),
           })),
-          total_amount: totalGross,
+          total_amount: Math.max(0, totalGross - discountAmount),
+          discount_amount: discountAmount,
           is_return: returnMode,
         }),
       });
@@ -549,6 +609,7 @@ export default function App() {
     });
     if (storeSettings.sound_enabled) playSaleBeep();
     clearCart();
+    setDiscountAmount(0);
     setIsPaymentModalOpen(false);
   };
 
@@ -561,7 +622,20 @@ export default function App() {
   if (!currentUser) {
     return (
       <>
-        <LoginScreen onLogin={(user) => setCurrentUser(user)} />
+        <LoginScreen onLogin={(user) => { setCurrentUser(user); setIsLocked(false); }} />
+        <Toaster position="bottom-right" richColors />
+      </>
+    );
+  }
+
+  if (isLocked) {
+    return (
+      <>
+        <ShiftLockScreen
+          user={currentUser}
+          onUnlock={() => { setIsLocked(false); resumeIdle(); }}
+          onLogout={() => { setIsLocked(false); handleLogout(); }}
+        />
         <Toaster position="bottom-right" richColors />
       </>
     );
@@ -575,6 +649,7 @@ export default function App() {
           onBarcodeSearch={handleBarcodeSearch}
           isOnline={isOnline}
           isPrinterConnected={true}
+          wsConnected={isWsConnected}
           darkMode={darkMode}
           onToggleDarkMode={() => setDarkMode(!darkMode)}
           returnMode={returnMode}
@@ -583,7 +658,6 @@ export default function App() {
           stationId={storeSettings.station_id}
           currentUser={currentUser}
           onLogout={handleLogout}
-          onLock={() => setIsLocked(true)}
         />
       </div>
 
@@ -708,6 +782,20 @@ export default function App() {
               setIsAdminPinModalOpen(false);
             } else if (pendingAdminAction === "price_override" && pendingPriceOverride) {
               updatePrice(pendingPriceOverride.id, pendingPriceOverride.price);
+              // Log price override for audit trail (fire-and-forget)
+              const productIdNum = pendingPriceOverride.id.startsWith("p-")
+                ? parseInt(pendingPriceOverride.id.slice(2), 10)
+                : null;
+              fetch(apiUrl("transactions/price-override-log"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  cashier_id: currentUser?.id,
+                  product_id: productIdNum,
+                  new_price: pendingPriceOverride.price,
+                  timestamp: new Date().toISOString(),
+                }),
+              }).catch(() => { });
               setPendingPriceOverride(null);
               setPendingAdminAction(null);
               setIsAdminPinModalOpen(false);
@@ -741,6 +829,7 @@ export default function App() {
             totalTax={totalTax}
             totalGross={totalGross}
             lastScannedId={lastScannedId ?? undefined}
+            vatRate={16}
             onUpdateQuantity={updateQuantity}
             onRemoveItem={removeItem}
             onUpdatePrice={(id, price) => {
@@ -761,22 +850,36 @@ export default function App() {
             onOpenHeldOrders={() => setIsHeldOrdersOpen(true)}
             returnMode={returnMode}
             onToggleReturnMode={() => setReturnMode(!returnMode)}
+            discountAmount={discountAmount}
+            onDiscountChange={(amt) => setDiscountAmount(amt)}
           />
         ) : currentView === "inventory" ? (
           <div className="flex flex-1 flex-col overflow-hidden animate-in">
-            <div className="h-12 border-b bg-card/50 backdrop-blur-md flex items-center px-6 shrink-0">
+            <div className="h-12 border-b bg-card/50 flex items-center justify-between px-6 shrink-0">
               <h3 className="text-xs font-black uppercase tracking-widest text-ocean-blue">
                 Inventory Browser
               </h3>
+              <Button variant="ghost" size="sm" onClick={() => {
+                setCurrentView("admin");
+                // We need a potentially cleaner way to switch sections, 
+                // but AdminDashboard resets to 'dashboard' on mount unless we control it.
+                // For now, let's just guide them to Admin.
+                // Or better: Pass an initialSection prop or persistent state?
+                // AdminDashboard keeps its own state `currentSection`.
+                // The user will have to click "Inventory" in Admin.
+              }}>
+                Manage & Import
+              </Button>
+
             </div>
             <div className="flex-1 p-6 overflow-hidden">
-              <ProductGrid onSelectProduct={addProductToCart} />
+              <ProductGrid onSelectProduct={addProductToCart} refetchKey={productRefetchKey} />
             </div>
           </div>
         ) : (
           <div className="flex flex-1 overflow-hidden">
             <AdminDashboard
-              userRole={currentUser?.role === "admin" ? "admin" : "cashier"}
+              userRole={currentUser?.role as "admin" | "cashier" | "developer" | undefined}
               isOnline={isOnline}
               shopName={storeSettings.shop_name || "DukaPOS"}
               onShopSettingsSaved={fetchStoreSettings}
@@ -817,7 +920,7 @@ export default function App() {
 
       <PaymentModal
         open={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
+        onClose={() => { setIsPaymentModalOpen(false); resumeIdle(); }}
         totalGross={totalGross}
         onCompleteSale={handleCompleteSale}
         defaultTab={paymentMethod}
@@ -826,22 +929,7 @@ export default function App() {
         initialCashTendered={undefined}
         mpesaTillNumber={storeSettings.mpesa_till_number}
       />
-      <IdleWarningModal
-        open={isWarning && !isLocked}
-        secondsRemaining={secondsRemaining}
-        onStayLoggedIn={resetIdle}
-        onLogout={handleLogout}
-      />
-      {isLocked && currentUser && (
-        <ShiftLockScreen
-          user={currentUser}
-          onUnlock={() => {
-            setIsLocked(false);
-            resumeIdle();
-          }}
-          onLogout={handleLogout}
-        />
-      )}
+
       <Toaster position="bottom-right" richColors />
     </div>
   );

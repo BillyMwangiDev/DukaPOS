@@ -1,14 +1,39 @@
 """Users & Staff: CRUD and login (Phase 1)."""
+import time
+from collections import defaultdict
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
 from pydantic import BaseModel, Field
+import logging
 
 from app.database import get_session
 from app.models import Staff, StoreSettings
 from app.auth_utils import hash_password, verify_password, hash_pin, verify_pin
 
 router = APIRouter(prefix="/staff", tags=["staff"])
+logger = logging.getLogger("dukapos.users")
+
+# In-memory rate limiter: max 10 attempts per IP per 60 seconds
+_rate_buckets: dict[str, list[float]] = defaultdict(list)
+_RATE_LIMIT_MAX = 10
+_RATE_LIMIT_WINDOW = 60  # seconds
+
+
+def _check_rate_limit(request: Request, endpoint: str) -> None:
+    """Raise 429 if caller exceeded attempt limit."""
+    ip = request.client.host if request.client else "unknown"
+    key = f"{ip}:{endpoint}"
+    now = time.monotonic()
+    attempts = [t for t in _rate_buckets[key] if now - t < _RATE_LIMIT_WINDOW]
+    if len(attempts) >= _RATE_LIMIT_MAX:
+        logger.warning(f"Rate limit exceeded: {key}")
+        raise HTTPException(
+            status_code=429,
+            detail="Too many attempts. Please wait a minute before trying again."
+        )
+    attempts.append(now)
+    _rate_buckets[key] = attempts
 
 # --- Schemas ---
 
@@ -113,8 +138,9 @@ def update_staff(staff_id: int, body: StaffUpdate, session: Session = Depends(ge
 
 
 @router.post("/login", response_model=LoginResponse)
-def login(body: LoginRequest, session: Session = Depends(get_session)):
+def login(body: LoginRequest, request: Request, session: Session = Depends(get_session)):
     """Login with username and password."""
+    _check_rate_limit(request, "login")
     staff = session.exec(select(Staff).where(Staff.username == body.username)).first()
     if not staff:
         raise HTTPException(status_code=401, detail="Invalid username or password")
@@ -131,8 +157,9 @@ class VerifyStaffPinRequest(BaseModel):
 
 
 @router.post("/verify-staff-pin", response_model=VerifyAdminPinResponse)
-def verify_staff_pin(body: VerifyStaffPinRequest, session: Session = Depends(get_session)):
+def verify_staff_pin(body: VerifyStaffPinRequest, request: Request, session: Session = Depends(get_session)):
     """Verify PIN for a specific staff member or any admin/developer."""
+    _check_rate_limit(request, "verify-staff-pin")
     # 1. Check if the specific staff member's PIN matches
     staff = session.get(Staff, body.staff_id)
     if staff and staff.is_active and verify_pin(body.pin, staff.pin_hash or ""):
@@ -148,8 +175,9 @@ def verify_staff_pin(body: VerifyStaffPinRequest, session: Session = Depends(get
 
 
 @router.post("/verify-admin-pin", response_model=VerifyAdminPinResponse)
-def verify_admin_pin(body: VerifyAdminPinRequest, session: Session = Depends(get_session)):
+def verify_admin_pin(body: VerifyAdminPinRequest, request: Request, session: Session = Depends(get_session)):
     """Verify admin or developer PIN."""
+    _check_rate_limit(request, "verify-admin-pin")
     admins = session.exec(select(Staff).where(Staff.role.in_(["admin", "developer"]), Staff.is_active)).all()
     for admin in admins:
         if verify_pin(body.pin, admin.pin_hash or ""):

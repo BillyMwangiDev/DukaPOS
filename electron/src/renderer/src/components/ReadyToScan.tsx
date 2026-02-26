@@ -4,7 +4,7 @@ export function ReadyToScan() {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center p-8 animate-in fade-in zoom-in duration-700">
       <div className="relative mb-8">
-        <div className="absolute -inset-8 bg-primary/5 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute -inset-8 bg-primary/5 rounded-full animate-pulse" />
         <Package className="size-48 text-primary stroke-[0.5] drop-shadow-2xl" />
       </div>
       <h2 className="text-4xl font-black tracking-tighter mb-3 uppercase italic text-foreground/80">

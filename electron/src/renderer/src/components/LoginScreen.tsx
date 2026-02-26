@@ -19,7 +19,8 @@ export interface LoggedInUser {
 export function getStoredUser(): LoggedInUser | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(SESSION_KEY);
+    // sessionStorage: cleared automatically when the Electron window closes
+    const raw = sessionStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     const u = JSON.parse(raw) as LoggedInUser;
     if (u?.id && typeof u.username === "string") return u;
@@ -31,8 +32,9 @@ export function getStoredUser(): LoggedInUser | null {
 
 export function setStoredUser(user: LoggedInUser | null): void {
   if (typeof window === "undefined") return;
-  if (user) localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-  else localStorage.removeItem(SESSION_KEY);
+  // sessionStorage: cleared automatically when the Electron window closes
+  if (user) sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
+  else sessionStorage.removeItem(SESSION_KEY);
 }
 
 interface LoginScreenProps {

@@ -31,7 +31,7 @@
           ]
         }
       ],
-      "icon": null
+      "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -44,9 +44,17 @@
     "files": [
       "dist-main/**/*",
       "src/renderer/dist/**/*"
-    ]
+    ],
+    "publish": {
+      "provider": "generic",
+      "url": "https://example.com/updates/"
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.49.1",
     "@types/node": "22.10.1",
     "concurrently": "9.1.0",
     "dmg-builder": "24.13.3",

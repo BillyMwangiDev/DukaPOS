@@ -6,37 +6,24 @@ Covers all TestSprite test cases (TC001-TC010) plus additional functionality.
 import os
 import sys
 from datetime import datetime, timezone
-
-# Add backend directory to sys.path FIRST
-_backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.insert(0, _backend_dir)
-
-# Set DATABASE_URL to test DB BEFORE any app imports
-# Use ABSOLUTE path relative to backend directory to avoid CWD issues
-_test_db_path = os.path.join(_backend_dir, "test_dukapos.db")
-os.environ["DATABASE_URL"] = f"sqlite:///{_test_db_path}"
-
-# Mock blocking modules BEFORE importing main
-from unittest.mock import MagicMock
-sys.modules["app.printer_service"] = MagicMock()
-sys.modules["app.routers.hardware"] = MagicMock()
-
-import pytest
 import time
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
+from unittest.mock import MagicMock
 
 # Now import app modules - they will use the test DATABASE_URL
-from app.database import engine, create_db_and_tables
-from app.models import User, Product, Shift, Transaction, TransactionItem, Customer
+from app.database import engine
+from app.models import Staff, Product, Shift, Receipt, SaleItem, Customer
 from main import app as fastapi_app
 
-# Create tables and seed data
-create_db_and_tables()
+# Create tables and seed data - MOVED TO FIXTURE
+# create_db_and_tables()
 
 # Create test client
-client = TestClient(fastapi_app)
+# client = TestClient(fastapi_app)
 
+# Database initialization and seeding is handled by conftest.py
 
 def _cleanup_test_data():
     """Clean up test data between test runs."""
@@ -64,7 +51,7 @@ def session():
 # ============================================================================
 # TC001: Health Check
 # ============================================================================
-def test_health_check():
+def test_health_check(client: TestClient):
     """GET /health returns status ok."""
     response = client.get("/health")
     assert response.status_code == 200
@@ -75,7 +62,7 @@ def test_health_check():
 # ============================================================================
 # TC002: Product CRUD Operations
 # ============================================================================
-def test_product_lifecycle():
+def test_product_lifecycle(client: TestClient):
     """Create, read, update, delete a product."""
     barcode = f"TEST{int(time.time())}"
     
@@ -83,7 +70,7 @@ def test_product_lifecycle():
     resp = client.post("/products", json={
         "name": "Test Widget",
         "barcode": barcode,
-        "price_sell": 100.0,
+        "price_selling": 100.0,
         "stock_quantity": 50
     })
     assert resp.status_code == 201
@@ -111,7 +98,7 @@ def test_product_lifecycle():
     assert resp.status_code == 404
 
 
-def test_add_product_inventory_enterprise():
+def test_add_product_inventory_enterprise(client: TestClient):
     """TC011: Create inventory item with enterprise fields (buying price, alerts)."""
     barcode = f"INV{int(time.time())}"
     payload = {
@@ -133,7 +120,7 @@ def test_add_product_inventory_enterprise():
 # ============================================================================
 # TC003: Get Product by Barcode
 # ============================================================================
-def test_get_product_by_barcode():
+def test_get_product_by_barcode(client: TestClient):
     """GET /products/barcode/{barcode} returns correct product."""
     barcode = f"TEST{int(time.time())}"
     
@@ -141,7 +128,7 @@ def test_get_product_by_barcode():
     resp = client.post("/products", json={
         "name": "Barcode Test",
         "barcode": barcode,
-        "price_sell": 50.0
+        "price_selling": 50.0
     })
     assert resp.status_code == 201
     product_id = resp.json()["id"]
@@ -158,7 +145,7 @@ def test_get_product_by_barcode():
 # ============================================================================
 # TC004: Create Transaction and Deduct Stock
 # ============================================================================
-def test_transaction_flow():
+def test_transaction_flow(client: TestClient):
     """Create product, create transaction, verify stock deduction."""
     barcode = f"TXTEST{int(time.time())}"
     
@@ -166,24 +153,24 @@ def test_transaction_flow():
     resp = client.post("/products", json={
         "name": "Transaction Test Product",
         "barcode": barcode,
-        "price_sell": 200.0,
+        "price_selling": 200.0,
         "stock_quantity": 50
     })
     assert resp.status_code == 201
     product = resp.json()
     product_id = product["id"]
     
-    # Get a cashier user
+    # Get a cashier staff
     with Session(engine) as session:
-        user = session.exec(select(User).where(User.role == "cashier")).first()
+        user = session.exec(select(Staff).where(Staff.role == "cashier")).first()
         if not user:
-            user = session.exec(select(User)).first()
+            user = session.exec(select(Staff)).first()
         cashier_id = user.id if user else 1
     
     # Create transaction
     resp = client.post("/transactions", json={
-        "cashier_id": cashier_id,
-        "payment_method": "CASH",
+        "staff_id": cashier_id,
+        "payment_type": "CASH",
         "total_amount": 400.0,
         "items": [
             {"product_id": product_id, "quantity": 2, "price_at_moment": 200.0}
@@ -206,16 +193,16 @@ def test_transaction_flow():
 # ============================================================================
 # TC005: Shifts Management
 # ============================================================================
-def test_shift_open_and_close():
+def test_shift_open_and_close(client: TestClient):
     """Test POST /shifts/open, GET /shifts/current, POST /shifts/{id}/close."""
-    # Get a cashier user
+    # Get a cashier staff
     with Session(engine) as session:
-        user = session.exec(select(User)).first()
+        user = session.exec(select(Staff)).first()
         cashier_id = user.id if user else 1
     
     # Open shift
     resp = client.post("/shifts/open", json={
-        "cashier_id": cashier_id,
+        "staff_id": cashier_id,
         "opening_float": 500.0
     })
     # May get 400 if shift already open, which is acceptable
@@ -234,7 +221,7 @@ def test_shift_open_and_close():
 # ============================================================================
 # TC006: Customer CRUD and Payment
 # ============================================================================
-def test_customer_crud_and_payment():
+def test_customer_crud_and_payment(client: TestClient):
     """Create customer, add debt, record payment."""
     # Create customer
     resp = client.post("/customers", json={
@@ -267,7 +254,7 @@ def test_customer_crud_and_payment():
 # ============================================================================
 # TC007: Held Orders
 # ============================================================================
-def test_held_orders():
+def test_held_orders(client: TestClient):
     """Test POST /orders/hold, GET /orders/held, DELETE /orders/held/{id}."""
     # Hold an order
     resp = client.post("/orders/hold", json={
@@ -292,7 +279,7 @@ def test_held_orders():
 # ============================================================================
 # TC010: Store Settings
 # ============================================================================
-def test_store_settings():
+def test_store_settings(client: TestClient):
     """Test GET and PUT /settings/store endpoints."""
     # Get store settings
     resp = client.get("/settings/store")
@@ -314,7 +301,7 @@ def test_store_settings():
 # ============================================================================
 # Duplicate Barcode Rejection
 # ============================================================================
-def test_duplicate_barcode_rejection():
+def test_duplicate_barcode_rejection(client: TestClient):
     """Reject product creation with duplicate barcode."""
     barcode = f"UNIQUE{int(time.time())}"
     
@@ -322,7 +309,7 @@ def test_duplicate_barcode_rejection():
     resp = client.post("/products", json={
         "name": "First Product",
         "barcode": barcode,
-        "price_sell": 50.0
+        "price_selling": 50.0
     })
     assert resp.status_code == 201
     first_id = resp.json()["id"]
@@ -331,7 +318,7 @@ def test_duplicate_barcode_rejection():
     resp = client.post("/products", json={
         "name": "Second Product",
         "barcode": barcode,
-        "price_sell": 75.0
+        "price_selling": 75.0
     })
     assert resp.status_code == 400
     assert "Barcode already exists" in resp.json().get("detail", "")
@@ -343,10 +330,10 @@ def test_duplicate_barcode_rejection():
 # ============================================================================
 # User Login Tests
 # ============================================================================
-def test_login_success_admin():
-    """Login with admin/admin123 returns 200 and user object."""
+def test_login_success_admin(client: TestClient):
+    """Login with admin/admin123 returns 200 and staff object."""
     response = client.post(
-        "/users/login",
+        "/staff/login",
         json={"username": "admin", "password": "admin123"},
     )
     assert response.status_code == 200
@@ -356,10 +343,10 @@ def test_login_success_admin():
     assert data["is_active"] is True
 
 
-def test_login_success_cashier():
-    """Login with cashier/cashier123 returns 200 and user object."""
+def test_login_success_cashier(client: TestClient):
+    """Login with cashier/cashier123 returns 200 and staff object."""
     response = client.post(
-        "/users/login",
+        "/staff/login",
         json={"username": "cashier", "password": "cashier123"},
     )
     assert response.status_code == 200
@@ -368,10 +355,10 @@ def test_login_success_cashier():
     assert data["role"] == "cashier"
 
 
-def test_login_invalid_credentials():
+def test_login_invalid_credentials(client: TestClient):
     """Login with invalid credentials returns 401."""
     response = client.post(
-        "/users/login",
+        "/staff/login",
         json={"username": "nobody", "password": "any"},
     )
     assert response.status_code == 401
@@ -381,7 +368,7 @@ def test_login_invalid_credentials():
 # ============================================================================
 # Detailed Sales Reports
 # ============================================================================
-def test_detailed_sales_returns_correct_structure():
+def test_detailed_sales_returns_correct_structure(client: TestClient):
     """Test that detailed sales returns correct response structure."""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     response = client.get(f"/reports/detailed-sales?period=daily&date={today}")
@@ -403,7 +390,7 @@ def test_detailed_sales_returns_correct_structure():
     assert "transaction_count" in summary
 
 
-def test_detailed_sales_export_csv():
+def test_detailed_sales_export_csv(client: TestClient):
     """TC012: Verify detailed sales CSV export."""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     response = client.get(f"/reports/detailed-sales/export?period=daily&date={today}")
@@ -415,9 +402,9 @@ def test_detailed_sales_export_csv():
 # ============================================================================
 # Cashier Performance Report
 # ============================================================================
-def test_list_cashiers():
-    """Test that /reports/cashiers returns active users."""
-    response = client.get("/reports/cashiers")
+def test_list_cashiers(client: TestClient):
+    """Test that /reports/staff-list returns active users."""
+    response = client.get("/reports/staff-list")
     
     assert response.status_code == 200
     cashiers = response.json()
@@ -428,7 +415,7 @@ def test_list_cashiers():
         assert "username" in cashiers[0]
 
 
-def test_cashier_performance_report():
+def test_cashier_performance_report(client: TestClient):
     """TC013: Verify cashier performance report and export."""
     # Get active staff
     resp = client.get("/reports/staff-list")
@@ -451,6 +438,62 @@ def test_cashier_performance_report():
     resp = client.get(f"/reports/staff-performance/export?staff_id={staff_id}&start_date={today}&end_date={today}")
     assert resp.status_code == 200
     assert "text/csv" in resp.headers.get("content-type", "")
+
+
+# ============================================================================
+# Bank Transaction Test
+# ============================================================================
+def test_bank_transaction(client: TestClient):
+    """Verify bank transaction flow with bank-specific fields."""
+    barcode = f"BANKTEST{int(time.time())}"
+    
+    # 1. Create product
+    resp = client.post("/products", json={
+        "name": "Bank Transaction Item",
+        "barcode": barcode,
+        "price_selling": 500.0,
+        "stock_quantity": 20
+    })
+    assert resp.status_code == 201
+    product_id = resp.json()["id"]
+
+    # 2. Get cashier ID
+    with Session(engine) as session:
+        user = session.exec(select(Staff).where(Staff.role == "cashier")).first()
+        cashier_id = user.id if user else 1
+
+    # 3. Create bank transaction
+    timestamp = datetime.now(timezone.utc).isoformat()
+    payload = {
+        "staff_id": cashier_id,
+        "payment_type": "BANK",
+        "bank_name": "Co-operative Bank",
+        "bank_sender_name": "Test User",
+        "bank_confirmed": True,
+        "bank_confirmation_timestamp": timestamp,
+        "total_amount": 1000.0,
+        "items": [
+            {"product_id": product_id, "quantity": 2, "price_at_moment": 500.0}
+        ]
+    }
+    resp = client.post("/transactions", json=payload)
+    assert resp.status_code == 201
+    tx = resp.json()
+    assert tx["payment_type"] == "BANK"
+    assert tx["bank_name"] == "Co-operative Bank"
+    assert tx["bank_confirmed"] is True
+    
+    # 4. Verify stock and items
+    with Session(engine) as session:
+        p = session.get(Product, product_id)
+        assert p.stock_quantity == 18 # 20 - 2
+        
+        # Verify receipt items are loaded
+        assert len(tx["items"]) == 1
+        assert tx["items"][0]["product_id"] == product_id
+
+    # 5. Cleanup
+    client.delete(f"/products/{product_id}")
 
 
 if __name__ == "__main__":

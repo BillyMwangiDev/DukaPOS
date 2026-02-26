@@ -1,14 +1,109 @@
-"""Inventory bulk upload (Excel/CSV)."""
+"""Inventory bulk upload (Excel/CSV) and stock adjustment."""
 import io
-from typing import List
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from datetime import datetime, timezone
+from typing import List, Optional
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from pydantic import BaseModel
 from sqlmodel import Session, select
 import pandas as pd
 
 from app.database import engine
-from app.models import Product
+from app.models import Product, StockAdjustment
+from app.websocket_manager import broadcast_sync, create_event, EventType
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
+
+
+def get_db():
+    with Session(engine) as session:
+        yield session
+
+
+# ── Stock Adjustment ──────────────────────────────────────────────────────────
+
+class StockAdjustCreate(BaseModel):
+    product_id: int
+    quantity_change: int  # positive = add, negative = remove
+    reason: str  # "Damage", "Expired", "Theft", "Received", "Correction"
+    staff_id: Optional[int] = None
+
+
+class StockAdjustRead(BaseModel):
+    id: int
+    product_id: int
+    staff_id: Optional[int]
+    quantity_change: int
+    reason: str
+    timestamp: str  # ISO format
+
+    model_config = {"from_attributes": True}
+
+
+@router.post("/adjust", response_model=StockAdjustRead, status_code=201)
+def adjust_stock(data: StockAdjustCreate, session: Session = Depends(get_db)):
+    """Create a stock adjustment (updates product stock_quantity and logs the change)."""
+    if data.quantity_change == 0:
+        raise HTTPException(status_code=400, detail="quantity_change cannot be zero")
+    if abs(data.quantity_change) > 100_000:
+        raise HTTPException(status_code=400, detail="quantity_change exceeds maximum allowed (100,000)")
+    product = session.get(Product, data.product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    new_qty = product.stock_quantity + data.quantity_change
+    if new_qty < 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Adjustment would result in negative stock ({new_qty}). Current: {product.stock_quantity}",
+        )
+    product.stock_quantity = new_qty
+    session.add(product)
+    adj = StockAdjustment(
+        product_id=data.product_id,
+        staff_id=data.staff_id,
+        quantity_change=data.quantity_change,
+        reason=data.reason,
+        timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
+    )
+    session.add(adj)
+    session.commit()
+    # Broadcast updated stock to all connected terminals
+    broadcast_sync(create_event(
+        EventType.INVENTORY_UPDATED,
+        {"product_id": product.id, "product_name": product.name, "new_quantity": product.stock_quantity},
+    ))
+    session.refresh(adj)
+    return StockAdjustRead(
+        id=adj.id,
+        product_id=adj.product_id,
+        staff_id=adj.staff_id,
+        quantity_change=adj.quantity_change,
+        reason=adj.reason,
+        timestamp=adj.timestamp.isoformat() + "Z",
+    )
+
+
+@router.get("/adjustments", response_model=List[StockAdjustRead])
+def list_adjustments(
+    product_id: Optional[int] = Query(None),
+    limit: int = Query(50, le=200),
+    session: Session = Depends(get_db),
+):
+    """List recent stock adjustments, optionally filtered by product."""
+    stmt = select(StockAdjustment).order_by(StockAdjustment.timestamp.desc()).limit(limit)  # type: ignore[attr-defined]
+    if product_id is not None:
+        stmt = select(StockAdjustment).where(StockAdjustment.product_id == product_id).order_by(StockAdjustment.timestamp.desc()).limit(limit)  # type: ignore[attr-defined]
+    rows = session.exec(stmt).all()
+    return [
+        StockAdjustRead(
+            id=r.id,
+            product_id=r.product_id,
+            staff_id=r.staff_id,
+            quantity_change=r.quantity_change,
+            reason=r.reason,
+            timestamp=r.timestamp.isoformat() + "Z",
+        )
+        for r in rows
+    ]
 
 # Expected column names (case-insensitive, strip); map to Product fields
 COLUMN_ALIASES = {

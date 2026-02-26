@@ -12,20 +12,23 @@ interface Product {
   price_selling: number;
   stock_quantity: number;
   min_stock_alert: number;
+  image_url?: string | null;
 }
 
 interface ProductGridProps {
   onSelectProduct: (product: any) => void;
+  /** Increment to trigger a product list refresh (e.g. on WS inventory update) */
+  refetchKey?: number;
 }
 
-export function ProductGrid({ onSelectProduct }: ProductGridProps) {
+export function ProductGrid({ onSelectProduct, refetchKey }: ProductGridProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [refetchKey]);
 
   async function fetchProducts() {
     try {
@@ -83,7 +86,17 @@ export function ProductGrid({ onSelectProduct }: ProductGridProps) {
                     onClick={() => onSelectProduct(product)}
                   >
                     <td className="px-4 py-4">
-                      <div className="text-sm font-semibold">{product.name}</div>
+                      <div className="flex items-center gap-2">
+                        {product.image_url && /^https?:\/\//i.test(product.image_url) && (
+                          <img
+                            src={product.image_url}
+                            alt={product.name}
+                            className="size-8 rounded object-cover shrink-0 border"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                          />
+                        )}
+                        <div className="text-sm font-semibold">{product.name}</div>
+                      </div>
                     </td>
                     <td className="px-4 py-4">
                       <div className="text-xs font-mono text-muted-foreground">{product.barcode}</div>

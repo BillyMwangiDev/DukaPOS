@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from app.config import config
 from fastapi.responses import StreamingResponse
 from sqlmodel import Session, select
 
@@ -128,3 +129,35 @@ def get_vscu_payload(id: int = Query(..., description="Receipt Database ID")):
     if payload is None:
         raise HTTPException(status_code=404, detail="Receipt not found")
     return payload
+
+
+@router.post("/submit-to-etims")
+def submit_to_etims(
+    start_date: str = Query(..., description="YYYY-MM-DD"),
+    end_date: str = Query(..., description="YYYY-MM-DD"),
+):
+    """
+    Submit sales data to KRA eTIMS live API.
+
+    Requires ENABLE_ETIMS=true in backend .env to be enabled.
+    When enabled, this endpoint will call the KRA API (not yet implemented — use CSV export).
+    """
+    enabled = config("ENABLE_ETIMS", default="false").strip().lower()
+    if enabled != "true":
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "KRA eTIMS live submission is disabled. "
+                "Set ENABLE_ETIMS=true in backend .env to enable this feature."
+            ),
+        )
+    # TODO: Implement actual KRA eTIMS API call when live credentials are available.
+    # The CSV export (/tax/etims-csv) is the currently supported method.
+    raise HTTPException(
+        status_code=501,
+        detail=(
+            "KRA eTIMS live API integration is configured (ENABLE_ETIMS=true) "
+            "but the live API client is not yet implemented. "
+            "Use /tax/etims-csv to export a CSV for manual submission."
+        ),
+    )

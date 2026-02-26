@@ -50,13 +50,13 @@ interface CashierSaleItem {
   timestamp: string;
   date: string;
   time: string;
-  receipt_number: string;
+  receipt_id: string;
   item_name: string;
   quantity: number;
   unit_price: number;
   total_price: number;
-  payment_method: string;
-  transaction_id: number;
+  payment_type: string;
+  db_id: number;
 }
 
 interface ShiftSummary {
@@ -76,16 +76,17 @@ interface CashierPerformanceSummary {
   cashier_name: string;
   total_sales: number;
   total_cash: number;
-  total_mpesa: number;
+  total_mobile: number;
+  total_bank: number;
   total_credit: number;
   total_items_sold: number;
   transaction_count: number;
   average_transaction: number;
 }
 
-interface CashierPerformanceResponse {
-  cashier_id: number;
-  cashier_name: string;
+interface StaffPerformanceResponse {
+  staff_id: number;
+  staff_name: string;
   period: string;
   start_date: string;
   end_date: string;
@@ -98,9 +99,17 @@ function getDefaultDates(): { start: string; end: string } {
   const end = new Date();
   const start = new Date();
   start.setDate(start.getDate() - 7);
+
+  const formatDate = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
+    start: formatDate(start),
+    end: formatDate(end),
   };
 }
 
@@ -109,8 +118,9 @@ export function CashierAuditScreen() {
   const [selectedCashierId, setSelectedCashierId] = useState<string>("");
   const [startDate, setStartDate] = useState(getDefaultDates().start);
   const [endDate, setEndDate] = useState(getDefaultDates().end);
-  const [report, setReport] = useState<CashierPerformanceResponse | null>(null);
+  const [report, setReport] = useState<StaffPerformanceResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -118,7 +128,7 @@ export function CashierAuditScreen() {
   useEffect(() => {
     async function fetchCashiers() {
       try {
-        const res = await fetch(apiUrl("reports/cashiers"));
+        const res = await fetch(apiUrl("reports/staff-list"));
         if (!res.ok) throw new Error("Failed to load cashiers");
         const data = await res.json();
         setCashiers(data);
@@ -134,22 +144,28 @@ export function CashierAuditScreen() {
   }, []);
 
   // Fetch report when cashier or dates change
-  const fetchReport = useCallback(async () => {
-    if (!selectedCashierId) return;
+  const fetchReport = useCallback(async (cId?: string, start?: string, end?: string) => {
+    const idToUse = cId || selectedCashierId;
+    const startToUse = start || startDate;
+    const endToUse = end || endDate;
+
+    if (!idToUse) return;
 
     setLoading(true);
+    setLoadError(false);
     try {
       const res = await fetch(
         apiUrl(
-          `reports/cashier-performance?cashier_id=${selectedCashierId}&start_date=${startDate}&end_date=${endDate}`
+          `reports/staff-performance?staff_id=${idToUse}&start_date=${startToUse}&end_date=${endToUse}`
         )
       );
       if (!res.ok) throw new Error("Failed to load report");
-      const data: CashierPerformanceResponse = await res.json();
+      const data: StaffPerformanceResponse = await res.json();
       setReport(data);
     } catch {
       toast.error("Failed to load cashier performance report");
       setReport(null);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -157,9 +173,11 @@ export function CashierAuditScreen() {
 
   useEffect(() => {
     if (selectedCashierId) {
-      fetchReport();
+      // Only auto-fetch when cashier changes, using current dates
+      fetchReport(selectedCashierId);
     }
-  }, [selectedCashierId, fetchReport]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCashierId]);
 
   // Export CSV
   const handleExportCsv = async () => {
@@ -169,7 +187,7 @@ export function CashierAuditScreen() {
     try {
       const res = await fetch(
         apiUrl(
-          `reports/cashier-performance/export?cashier_id=${selectedCashierId}&start_date=${startDate}&end_date=${endDate}`
+          `reports/staff-performance/export?staff_id=${selectedCashierId}&start_date=${startDate}&end_date=${endDate}`
         )
       );
       if (!res.ok) throw new Error("Export failed");
@@ -199,14 +217,14 @@ export function CashierAuditScreen() {
     return report.items.filter(
       (item) =>
         item.item_name.toLowerCase().includes(q) ||
-        item.receipt_number.toLowerCase().includes(q) ||
-        item.payment_method.toLowerCase().includes(q)
+        (item.receipt_id || "").toLowerCase().includes(q) ||
+        (item.payment_type || "").toLowerCase().includes(q)
     );
   }, [report?.items, searchQuery]);
 
-  // Payment badge component
-  const PaymentBadge = ({ method }: { method: string }) => {
-    const m = method.toUpperCase();
+  // Payment badge from type
+  const PaymentTypeBadge = ({ type }: { type: string }) => {
+    const m = (type || "").toUpperCase();
     if (m === "CASH") {
       return (
         <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 gap-1">
@@ -215,7 +233,7 @@ export function CashierAuditScreen() {
         </Badge>
       );
     }
-    if (m === "MPESA") {
+    if (m === "MPESA" || m === "MOBILE") {
       return (
         <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 gap-1">
           <Smartphone className="size-3" />
@@ -231,7 +249,15 @@ export function CashierAuditScreen() {
         </Badge>
       );
     }
-    return <Badge variant="outline">{method}</Badge>;
+    if (m === "BANK") {
+      return (
+        <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 gap-1">
+          <CreditCard className="size-3" />
+          Bank
+        </Badge>
+      );
+    }
+    return <Badge variant="outline">{type}</Badge>;
   };
 
   return (
@@ -312,16 +338,38 @@ export function CashierAuditScreen() {
               />
             </div>
 
-            <Button onClick={fetchReport} disabled={loading || !selectedCashierId}>
+            <Button onClick={() => fetchReport()} disabled={loading || !selectedCashierId}>
               {loading ? "Loading..." : "Search"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
+      {/* Loading skeleton */}
+      {loading && (
+        <div className="space-y-4 animate-pulse">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-24 bg-muted rounded-xl" />
+            ))}
+          </div>
+          <div className="h-64 bg-muted rounded-xl" />
+        </div>
+      )}
+
+      {/* Error state */}
+      {!loading && loadError && (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+          <p>Failed to load cashier report.</p>
+          <Button variant="outline" size="sm" onClick={() => fetchReport()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
       {/* Summary Cards */}
-      {report?.summary && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      {!loading && !loadError && report?.summary && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
@@ -360,7 +408,21 @@ export function CashierAuditScreen() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
-                {formatKsh(report.summary.total_mpesa)}
+                {formatKsh(report.summary.total_mobile)}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-1">
+                <CreditCard className="size-4 text-purple-500" />
+                Bank Collected
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold font-mono text-purple-600 dark:text-purple-400">
+                {formatKsh(report.summary.total_bank)}
               </div>
             </CardContent>
           </Card>
@@ -415,49 +477,68 @@ export function CashierAuditScreen() {
                     <TableHead className="text-right">Opening Float</TableHead>
                     <TableHead className="text-right">Cash Sales</TableHead>
                     <TableHead className="text-right font-semibold">Expected Cash</TableHead>
+                    <TableHead className="text-right">Variance</TableHead>
                     <TableHead className="text-right">M-Pesa</TableHead>
                     <TableHead className="text-right">Transactions</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {report.shifts.map((shift) => (
-                    <TableRow key={shift.shift_id}>
-                      <TableCell className="font-mono">#{shift.shift_id}</TableCell>
-                      <TableCell className="text-sm">
-                        {shift.opened_at ? new Date(shift.opened_at).toLocaleString() : "—"}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {shift.closed_at ? new Date(shift.closed_at).toLocaleString() : "Open"}
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatKsh(shift.opening_float)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-blue-600 dark:text-blue-400">
-                        {formatKsh(shift.total_cash_sales)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono font-semibold bg-muted/50">
-                        {formatKsh(shift.expected_cash)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-emerald-600 dark:text-emerald-400">
-                        {formatKsh(shift.total_mpesa_sales)}
-                      </TableCell>
-                      <TableCell className="text-right">{shift.transaction_count}</TableCell>
-                      <TableCell>
-                        {shift.closed_at ? (
-                          <Badge variant="secondary" className="gap-1">
-                            <CheckCircle2 className="size-3" />
-                            Closed
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="gap-1 text-amber-600">
-                            <AlertTriangle className="size-3" />
-                            Open
-                          </Badge>
-                        )}
+                  {report && report.shifts && report.shifts.length > 0 ? (
+                    report.shifts.map((shift) => (
+                      <TableRow key={shift.shift_id}>
+                        <TableCell className="font-mono">#{shift.shift_id}</TableCell>
+                        <TableCell className="text-sm">
+                          {shift.opened_at ? new Date(shift.opened_at).toLocaleString() : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {shift.closed_at ? new Date(shift.closed_at).toLocaleString() : "Open"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {formatKsh(shift.opening_float)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-blue-600 dark:text-blue-400">
+                          {formatKsh(shift.total_cash_sales)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-semibold bg-muted/50">
+                          {formatKsh(shift.expected_cash)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {(() => {
+                            const variance = shift.expected_cash - (shift.opening_float + shift.total_cash_sales);
+                            const isOk = Math.abs(variance) <= 50;
+                            return (
+                              <span className={isOk ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400 font-semibold"}>
+                                {variance === 0 ? "—" : (variance > 0 ? "+" : "") + formatKsh(variance)}
+                              </span>
+                            );
+                          })()}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-emerald-600 dark:text-emerald-400">
+                          {formatKsh(shift.total_mpesa_sales)}
+                        </TableCell>
+                        <TableCell className="text-right">{shift.transaction_count}</TableCell>
+                        <TableCell>
+                          {shift.closed_at ? (
+                            <Badge variant="secondary" className="gap-1">
+                              <CheckCircle2 className="size-3" />
+                              Closed
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1 text-amber-600">
+                              <AlertTriangle className="size-3" />
+                              Open
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))) : (
+                    <TableRow>
+                      <TableCell colSpan={10} className="text-center text-muted-foreground py-4">
+                        No shift data found.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -512,12 +593,12 @@ export function CashierAuditScreen() {
                 </TableHeader>
                 <TableBody>
                   {filteredItems.map((item, idx) => (
-                    <TableRow key={`${item.transaction_id}-${idx}`}>
+                    <TableRow key={`${item.db_id}-${idx}`}>
                       <TableCell className="font-mono text-sm">
                         {item.date} {item.time}
                       </TableCell>
                       <TableCell className="font-mono text-sm">
-                        {item.receipt_number}
+                        {item.receipt_id}
                       </TableCell>
                       <TableCell className="font-medium">{item.item_name}</TableCell>
                       <TableCell className="text-center">{item.quantity}</TableCell>
@@ -525,7 +606,7 @@ export function CashierAuditScreen() {
                         {formatKsh(item.total_price)}
                       </TableCell>
                       <TableCell>
-                        <PaymentBadge method={item.payment_method} />
+                        <PaymentTypeBadge type={item.payment_type} />
                       </TableCell>
                     </TableRow>
                   ))}

@@ -1,5 +1,6 @@
 """Products CRUD API."""
 from typing import List, Optional
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 from pydantic import BaseModel, Field, computed_field
@@ -14,6 +15,7 @@ class ProductCreate(BaseModel):
     name: str
     barcode: str
     description: Optional[str] = None
+    category: str = "General"
     price_buying: float = 0.0
     price_selling: float = Field(0.0, alias="price_sell")  # alias for TestSprite / API compatibility
     wholesale_price: Optional[float] = None
@@ -21,6 +23,11 @@ class ProductCreate(BaseModel):
     tax_percentage: float = 16.0
     stock_quantity: int = 0
     min_stock_alert: int = 5
+    image_url: Optional[str] = None
+    item_discount_type: Optional[str] = None
+    item_discount_value: Optional[float] = None
+    item_discount_start: Optional[datetime] = None
+    item_discount_expiry: Optional[datetime] = None
 
     model_config = {"populate_by_name": True}
 
@@ -30,6 +37,7 @@ class ProductRead(BaseModel):
     name: str
     barcode: str
     description: Optional[str] = None
+    category: str = "General"
     price_buying: float
     price_selling: float
     wholesale_price: Optional[float] = None
@@ -37,6 +45,11 @@ class ProductRead(BaseModel):
     tax_percentage: float
     stock_quantity: int
     min_stock_alert: int
+    image_url: Optional[str] = None
+    item_discount_type: Optional[str] = None
+    item_discount_value: Optional[float] = None
+    item_discount_start: Optional[datetime] = None
+    item_discount_expiry: Optional[datetime] = None
 
     @computed_field
     @property
@@ -58,6 +71,7 @@ class ProductUpdate(BaseModel):
     name: Optional[str] = None
     barcode: Optional[str] = None
     description: Optional[str] = None
+    category: Optional[str] = None
     price_buying: Optional[float] = None
     price_selling: Optional[float] = None
     wholesale_price: Optional[float] = None
@@ -65,6 +79,11 @@ class ProductUpdate(BaseModel):
     tax_percentage: Optional[float] = None
     stock_quantity: Optional[int] = Field(None, alias="stock")
     min_stock_alert: Optional[int] = None
+    image_url: Optional[str] = None
+    item_discount_type: Optional[str] = None
+    item_discount_value: Optional[float] = None
+    item_discount_start: Optional[datetime] = None
+    item_discount_expiry: Optional[datetime] = None
 
     model_config = {"populate_by_name": True}
 
@@ -74,6 +93,15 @@ def get_db():
     from sqlmodel import Session
     with Session(engine) as session:
         yield session
+
+
+@router.get("/categories", response_model=List[str])
+def list_categories(session: Session = Depends(get_db)):
+    """Return distinct product categories for filter dropdowns."""
+    from sqlalchemy import distinct
+    rows = session.exec(select(Product.category).distinct()).all()
+    categories = sorted({r for r in rows if r})
+    return categories
 
 
 @router.get("", response_model=List[ProductRead])
@@ -114,6 +142,12 @@ def create_product(data: ProductCreate, session: Session = Depends(get_db)):
     existing = session.exec(select(Product).where(Product.barcode == data.barcode)).first()
     if existing:
         raise HTTPException(status_code=400, detail="Barcode already exists")
+    if data.price_buying < 0:
+        raise HTTPException(status_code=400, detail="price_buying cannot be negative")
+    if data.price_selling < 0:
+        raise HTTPException(status_code=400, detail="price_selling cannot be negative")
+    if data.wholesale_price is not None and data.wholesale_price < 0:
+        raise HTTPException(status_code=400, detail="wholesale_price cannot be negative")
     product = Product(**data.model_dump())
     session.add(product)
     session.commit()
@@ -128,7 +162,16 @@ def update_product(
     product = session.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    for k, v in data.model_dump(exclude_unset=True).items():
+    updates = data.model_dump(exclude_unset=True)
+    if "stock_quantity" in updates and updates["stock_quantity"] < 0:
+        raise HTTPException(status_code=400, detail="stock_quantity cannot be negative")
+    if "price_buying" in updates and updates["price_buying"] is not None and updates["price_buying"] < 0:
+        raise HTTPException(status_code=400, detail="price_buying cannot be negative")
+    if "price_selling" in updates and updates["price_selling"] is not None and updates["price_selling"] < 0:
+        raise HTTPException(status_code=400, detail="price_selling cannot be negative")
+    if "wholesale_price" in updates and updates["wholesale_price"] is not None and updates["wholesale_price"] < 0:
+        raise HTTPException(status_code=400, detail="wholesale_price cannot be negative")
+    for k, v in updates.items():
         setattr(product, k, v)
     session.add(product)
     session.commit()

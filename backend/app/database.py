@@ -1,8 +1,13 @@
 """Database engine and session for DukaPOS."""
+import logging
 import os
 import sys
+from typing import Optional
 from sqlmodel import Session, create_engine, SQLModel, select
+from sqlalchemy import event
 from app.config import config
+
+logger = logging.getLogger("dukapos.database")
 
 from app.models import Staff, InvoiceSequence, StoreSettings
 
@@ -11,27 +16,44 @@ if getattr(sys, "frozen", False) and os.environ.get("DATABASE_URL"):
     DATABASE_URL = os.environ["DATABASE_URL"]
 else:
     DATABASE_URL = config("DATABASE_URL", default="sqlite:///./dukapos.db")
-connect_args = {} if not DATABASE_URL.startswith("sqlite") else {"check_same_thread": False}
+connect_args = {} if not DATABASE_URL.startswith("sqlite") else {"check_same_thread": False, "timeout": 30}
 engine = create_engine(DATABASE_URL, connect_args=connect_args, echo=False)
+logger.debug("Using database at %s", DATABASE_URL)
+
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    if DATABASE_URL.startswith("sqlite"):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.close()
 
 
 def create_db_and_tables() -> None:
+    logger.debug("Entering create_db_and_tables...")
     SQLModel.metadata.create_all(engine)
-    _migrate_to_enterprise_schema()
+    logger.debug("SQLModel tables created.")
+    run_migrations_if_needed()
+    logger.debug("Migrations finished.")
     _migrate_user_columns()
     _migrate_store_settings_columns()
     _migrate_customer_kra_pin()
     _migrate_product_description()
+    _migrate_product_image_url()
+    _migrate_product_discounts()
+    _migrate_discount_dates()
     _migrate_customer_email_address()
     _migrate_heldorder_notes()
+    _migrate_receipt_bank_columns()
     _migrate_transactionitem_cashier()
     _seed_default_staff()
     _seed_sample_staff()
     _seed_invoice_sequence()
     _seed_store_settings()
+    logger.debug("Seeding finished.")
 
 
-def _migrate_to_enterprise_schema() -> None:
+def run_migrations_if_needed() -> None:
     """Migrate data from old User/Transaction tables to Staff/Receipt if needed."""
     from sqlalchemy import text, inspect
     with engine.connect() as conn:
@@ -48,28 +70,29 @@ def _migrate_to_enterprise_schema() -> None:
                 """))
                 conn.commit()
 
+        # Migration check: only run if needed
+        logger.debug("Checking if migration is needed...")
+
         # 2. Transaction -> Receipt
         if "transaction" in tables and "receipt" in tables:
-            receipt_count = conn.execute(text("SELECT count(*) FROM receipt")).scalar()
-            if receipt_count == 0:
-                # Helper to generate receipt_id if missing
-                conn.execute(text("""
-                    INSERT INTO receipt (id, receipt_id, timestamp, shift_id, staff_id, customer_id,
-                                        total_amount, payment_type, is_return, origin_station, payment_status)
-                    SELECT id, 'MIG-' || id, timestamp, shift_id, cashier_id, customer_id,
-                           total_amount, payment_method, is_return, 'POS-01', payment_status FROM [transaction]
-                """))
-                conn.commit()
+            logger.debug("Migrating transaction -> receipt...")
+            conn.execute(text("""
+                INSERT OR IGNORE INTO receipt (id, receipt_id, timestamp, shift_id, staff_id, customer_id,
+                                    total_amount, payment_type, is_return, origin_station, payment_status)
+                SELECT id, 'MIG-' || id, timestamp, shift_id, cashier_id, customer_id,
+                       total_amount, payment_method, is_return, 'POS-01', payment_status FROM "transaction"
+            """))
+            conn.commit()
 
         # 3. TransactionItem -> SaleItem
         if "transactionitem" in tables and "saleitem" in tables:
-            item_count = conn.execute(text("SELECT count(*) FROM saleitem")).scalar()
-            if item_count == 0:
-                conn.execute(text("""
-                    INSERT INTO saleitem (id, receipt_id, product_id, staff_id, quantity, price_at_moment, is_return, return_reason)
-                    SELECT id, transaction_id, product_id, cashier_id, quantity, price_at_moment, is_return, return_reason FROM transactionitem
-                """))
-                conn.commit()
+            logger.debug("Migrating transactionitem -> saleitem...")
+            conn.execute(text("""
+                INSERT OR IGNORE INTO saleitem (id, receipt_id, product_id, staff_id, quantity, price_at_moment, is_return, return_reason)
+                SELECT id, transaction_id, product_id, cashier_id, quantity, price_at_moment, is_return, return_reason FROM transactionitem
+            """))
+            conn.commit()
+        logger.debug("Migration check complete.")
 
 
 def _migrate_user_columns() -> None:
@@ -90,8 +113,10 @@ def _migrate_user_columns() -> None:
 def _seed_default_staff() -> None:
     """Ensure at least one admin exists in Staff."""
     from app.auth_utils import hash_password, hash_pin
+    logger.debug("Seeding default staff...")
     with Session(engine) as session:
         has_any = session.exec(select(Staff)).first() is not None
+        logger.debug("Staff check: has_any=%s", has_any)
         has_admin = session.exec(select(Staff).where(Staff.role == "admin")).first() is not None
         if not has_any:
             session.add(Staff(
@@ -209,6 +234,56 @@ def _migrate_product_description() -> None:
         conn.commit()
 
 
+def _migrate_product_image_url() -> None:
+    """Add image_url to product table if missing."""
+    from sqlalchemy import text, inspect
+    with engine.connect() as conn:
+        insp = inspect(engine)
+        if "product" not in insp.get_table_names():
+            return
+        cols = [c["name"].lower() for c in insp.get_columns("product")]
+        if "image_url" not in cols:
+            conn.execute(text("ALTER TABLE product ADD COLUMN image_url TEXT"))
+        conn.commit()
+
+
+def _migrate_product_discounts() -> None:
+    """Add item-level discount campaign fields to product table if missing."""
+    from sqlalchemy import text, inspect
+    with engine.connect() as conn:
+        insp = inspect(engine)
+        if "product" not in insp.get_table_names():
+            return
+        cols = [c["name"].lower() for c in insp.get_columns("product")]
+        
+        updates = [
+            ("item_discount_type", "TEXT"),
+            ("item_discount_value", "REAL"),
+            ("item_discount_start", "DATETIME"),
+            ("item_discount_expiry", "DATETIME"),
+        ]
+        
+        for col, col_type in updates:
+            if col not in cols:
+                conn.execute(text(f"ALTER TABLE product ADD COLUMN {col} {col_type}"))
+        conn.commit()
+
+
+def _migrate_discount_dates() -> None:
+    """Add start_date / end_date to discount table if missing."""
+    from sqlalchemy import text, inspect
+    with engine.connect() as conn:
+        insp = inspect(engine)
+        if "discount" not in insp.get_table_names():
+            return
+        cols = [c["name"].lower() for c in insp.get_columns("discount")]
+        if "start_date" not in cols:
+            conn.execute(text("ALTER TABLE discount ADD COLUMN start_date DATETIME"))
+        if "end_date" not in cols:
+            conn.execute(text("ALTER TABLE discount ADD COLUMN end_date DATETIME"))
+        conn.commit()
+
+
 def _migrate_customer_email_address() -> None:
     """Add email and address to customer table."""
     from sqlalchemy import text, inspect
@@ -248,6 +323,34 @@ def _migrate_transactionitem_cashier() -> None:
         conn.commit()
 
 
+def _migrate_receipt_bank_columns() -> None:
+    """Add bank-specific columns to receipt table."""
+    from sqlalchemy import text, inspect
+    with engine.connect() as conn:
+        insp = inspect(engine)
+        if "receipt" not in insp.get_table_names():
+            return
+        cols = [c["name"].lower() for c in insp.get_columns("receipt")]
+
+        # New bank fields
+        bank_updates = [
+            ("bank_name", "TEXT"),
+            ("bank_sender_name", "TEXT"),
+            ("bank_confirmed", "INTEGER DEFAULT 0"),
+            ("bank_confirmation_timestamp", "DATETIME"),
+            ("business_name", "TEXT DEFAULT 'DukaPOS'")
+        ]
+
+        for col, col_type in bank_updates:
+            if col not in cols:
+                try:
+                    conn.execute(text(f"ALTER TABLE receipt ADD COLUMN {col} {col_type}"))
+                except Exception:
+                    pass
+        conn.commit()
+
+
+
 def _seed_store_settings() -> None:
     """Ensure row in StoreSettings (id=1)."""
     with Session(engine) as session:
@@ -269,23 +372,30 @@ def _seed_store_settings() -> None:
             session.commit()
 
 
-def get_next_receipt_id() -> str:
+def get_next_receipt_id(session_param: Optional[Session] = None) -> str:
     """Generate next receipt ID with Station ID prefix (e.g. POS-01-00001)."""
-    with Session(engine) as session:
-        settings = session.get(StoreSettings, 1)
+    def _logic(s: Session):
+        settings = s.get(StoreSettings, 1)
         prefix = settings.station_id if settings else "POS-01"
 
-        row = session.exec(select(InvoiceSequence)).first()
+        row = s.exec(select(InvoiceSequence)).first()
         if not row:
-            session.add(InvoiceSequence(last_number=1))
-            session.commit()
+            row = InvoiceSequence(last_number=1)
+            s.add(row)
             return f"{prefix}-00001"
 
         next_num = row.last_number + 1
         row.last_number = next_num
-        session.add(row)
-        session.commit()
+        s.add(row)
         return f"{prefix}-{next_num:05d}"
+
+    if session_param:
+        return _logic(session_param)
+    else:
+        with Session(engine) as session:
+            res = _logic(session)
+            session.commit()
+            return res
 
 
 def get_session():

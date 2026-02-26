@@ -14,6 +14,7 @@ class DashboardSummary(BaseModel):
     total_revenue: float
     total_cash: float
     total_mobile: float
+    total_bank: float
     total_credit: float
     net_profit: float
     vat_collected: float
@@ -31,6 +32,7 @@ def get_dashboard_summary():
         total_revenue = 0.0
         total_cash = 0.0
         total_mobile = 0.0
+        total_bank = 0.0
         total_credit = 0.0
         for r in receipts:
             total_revenue += r.total_amount
@@ -39,9 +41,8 @@ def get_dashboard_summary():
                 total_cash += r.total_amount
             elif ptype == "MOBILE":
                 total_mobile += r.total_amount
-            elif ptype == "MPESA":
-                # Backward compatibility if any strings remain
-                total_mobile += r.total_amount
+            elif ptype == "BANK":
+                total_bank += r.total_amount
             elif ptype == "CREDIT":
                 total_credit += r.total_amount
 
@@ -60,6 +61,7 @@ def get_dashboard_summary():
             total_revenue=total_revenue,
             total_cash=total_cash,
             total_mobile=total_mobile,
+            total_bank=total_bank,
             total_credit=total_credit,
             net_profit=round(net_profit, 2),
             vat_collected=round(vat_collected, 2),

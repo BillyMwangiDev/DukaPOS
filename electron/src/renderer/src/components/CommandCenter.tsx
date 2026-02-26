@@ -16,6 +16,10 @@ interface CommandCenterProps {
   onOpenHeldOrders?: () => void;
   returnMode: boolean;
   onToggleReturnMode?: () => void;
+  /** VAT rate percentage (e.g. 16). Defaults to 16 if not provided. */
+  vatRate?: number;
+  /** Discount applied to the order (already subtracted from totalGross). */
+  discountAmount?: number;
 }
 
 export function CommandCenter({
@@ -29,7 +33,10 @@ export function CommandCenter({
   onOpenHeldOrders,
   returnMode,
   onToggleReturnMode,
-}: CommandCenterProps) {
+  isPaymentDisabled = false,
+  vatRate = 16,
+  discountAmount = 0,
+}: CommandCenterProps & { isPaymentDisabled?: boolean }) {
   return (
     <div
       className={cn(
@@ -49,9 +56,15 @@ export function CommandCenter({
             <span className="font-mono">{formatKsh(totalNet)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">VAT (16%)</span>
+            <span className="text-muted-foreground">VAT ({vatRate}%)</span>
             <span className="font-mono">{formatKsh(totalTax)}</span>
           </div>
+          {discountAmount > 0 && (
+            <div className="flex justify-between text-sm text-emerald-500">
+              <span>Discount</span>
+              <span className="font-mono">-{formatKsh(discountAmount)}</span>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -60,6 +73,7 @@ export function CommandCenter({
         <Button
           className="w-full h-14 text-xl btn-cash"
           onClick={onCashPayment}
+          disabled={isPaymentDisabled}
         >
           <Banknote className="mr-3 size-6" />
           CASH
@@ -67,6 +81,7 @@ export function CommandCenter({
         <Button
           className="w-full h-14 text-xl btn-mpesa"
           onClick={onMpesaPayment}
+          disabled={isPaymentDisabled}
         >
           <Smartphone className="mr-3 size-6" />
           M-PESA
@@ -74,6 +89,7 @@ export function CommandCenter({
         <Button
           className="w-full h-14 text-xl btn-credit"
           onClick={onCreditPayment}
+          disabled={isPaymentDisabled}
         >
           <CreditCard className="mr-3 size-6" />
           CREDIT

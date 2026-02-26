@@ -2,13 +2,15 @@ import { useState, useEffect } from "react";
 import { AdminSidebar } from "./AdminSidebar";
 import { DashboardScreen, type LowStockProduct } from "./DashboardScreen";
 import { InventoryManagerScreen } from "./InventoryManagerScreen";
-import { TaxEtimsScreen } from "./TaxEtimsScreen";
 import { StaffManagementScreen } from "./UserManagementScreen";
 import { CustomerManagementScreen } from "./CustomerManagementScreen";
 import { SalesReportsScreen } from "./SalesReportsScreen";
 import { DetailedReportsScreen } from "./DetailedReportsScreen";
+import { ReceiptsHistoryScreen } from "./ReceiptsHistoryScreen";
 import { CashierAuditScreen } from "./CashierAuditScreen";
 import { DeveloperConsole } from "./DeveloperConsole";
+import { SuppliersScreen } from "./SuppliersScreen";
+import { DiscountsScreen } from "./DiscountsScreen";
 import { apiUrl } from "@/lib/api";
 import { SettingsView } from "@/components/SettingsView";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -25,12 +27,11 @@ interface AdminDashboardProps {
   onToggleDarkMode?: () => void;
 }
 
-interface ProductFromApi {
+interface LowStockFromApi {
   id: number;
   name: string;
-  barcode: string;
   stock_quantity: number;
-  min_stock_alert?: number;
+  min_stock_alert: number;
 }
 
 export function AdminDashboard({
@@ -47,9 +48,9 @@ export function AdminDashboard({
   const [currentSection, setCurrentSection] = useState("dashboard");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // Cashiers must not access users, tax, settings
+  // Cashiers must not access users, settings, discounts
   useEffect(() => {
-    if (isCashier && ["users", "tax", "settings"].includes(currentSection)) {
+    if (isCashier && ["users", "settings", "discounts", "suppliers", "developer"].includes(currentSection)) {
       setCurrentSection("dashboard");
     }
   }, [isCashier, currentSection]);
@@ -57,6 +58,7 @@ export function AdminDashboard({
   const [dailyStats, setDailyStats] = useState({
     totalCash: 0,
     totalMpesa: 0,
+    totalBank: 0,
     netProfit: 0,
     vatCollected: 0,
     activeTills: 1,
@@ -72,7 +74,8 @@ export function AdminDashboard({
         if (data && typeof data === "object") {
           setDailyStats({
             totalCash: Number(data.total_cash) || 0,
-            totalMpesa: Number(data.total_mpesa) || 0,
+            totalMpesa: Number(data.total_mobile) || 0,
+            totalBank: Number(data.total_bank) || 0,
             netProfit: Number(data.net_profit) || 0,
             vatCollected: Number(data.vat_collected) || 0,
             activeTills: 1,
@@ -86,26 +89,25 @@ export function AdminDashboard({
   }, [currentSection]);
 
   useEffect(() => {
-    async function fetchProducts() {
+    async function fetchLowStock() {
       try {
-        const res = await fetch(apiUrl("products"));
+        const res = await fetch(apiUrl("reports/low-stock"));
         if (!res.ok) return;
         const list = await res.json();
         const arr = Array.isArray(list) ? list : [];
-        const low = arr
-          .filter((p: ProductFromApi) => p && p.stock_quantity > 0 && p.stock_quantity <= (p.min_stock_alert ?? 10))
-          .map((p: ProductFromApi) => ({
+        setLowStockProducts(
+          arr.map((p: LowStockFromApi) => ({
             id: p.id,
             name: p.name,
-            category: undefined,
             stock: p.stock_quantity,
-          }));
-        setLowStockProducts(low);
+            threshold: p.min_stock_alert,
+          }))
+        );
       } catch {
         setLowStockProducts([]);
       }
     }
-    fetchProducts();
+    fetchLowStock();
   }, []);
 
   return (
@@ -142,6 +144,11 @@ export function AdminDashboard({
             <DetailedReportsScreen />
           </ErrorBoundary>
         )}
+        {currentSection === "receipts-history" && (
+          <ErrorBoundary>
+            <ReceiptsHistoryScreen />
+          </ErrorBoundary>
+        )}
         {!isCashier && currentSection === "cashier-audit" && (
           <ErrorBoundary>
             <CashierAuditScreen />
@@ -150,6 +157,11 @@ export function AdminDashboard({
         {currentSection === "inventory" && (
           <ErrorBoundary>
             <InventoryManagerScreen readOnly={isCashier} />
+          </ErrorBoundary>
+        )}
+        {!isCashier && currentSection === "suppliers" && (
+          <ErrorBoundary>
+            <SuppliersScreen />
           </ErrorBoundary>
         )}
         {!isCashier && currentSection === "users" && (
@@ -162,9 +174,9 @@ export function AdminDashboard({
             <CustomerManagementScreen readOnly={isCashier} />
           </ErrorBoundary>
         )}
-        {!isCashier && currentSection === "tax" && (
+        {!isCashier && currentSection === "discounts" && (
           <ErrorBoundary>
-            <TaxEtimsScreen />
+            <DiscountsScreen />
           </ErrorBoundary>
         )}
         {!isCashier && currentSection === "settings" && (

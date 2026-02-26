@@ -1,6 +1,6 @@
 # DukaPOS – Product Requirements Document (PRD)
 
-**Version:** 1.0  
+**Version:** 2.0
 **Product:** DukaPOS – Offline-first Point of Sale for small businesses in Kenya.
 
 ---
@@ -88,27 +88,35 @@ DukaPOS is a production-grade, **offline-first** Point of Sale (POS) system for 
 - Shifts (open float, close with Admin PIN, Z-Report).
 - Low-stock warning; sound effects (optional); stock override (Admin PIN when out of stock).
 
-### 5.2 Inventory
+### 5.2 Inventory & Stock
 
 - Import Excel/CSV (file picker → POST /inventory/upload); pandas; upsert by barcode.
-- Admin Inventory: product table, CRUD, low-stock alerts.
+- Admin Inventory: product table, CRUD, low-stock alerts, category filter.
+- **Stock Adjustments:** Per-product audit trail (damage, theft, expired, correction). POST /inventory/{id}/adjust; GET /inventory/{id}/adjustments. Stock auto-incremented/decremented.
+- **Discounts:** Reusable discount definitions (percent or fixed, order or item scope, optional date range). Full CRUD via /discounts. Applied at checkout with discount_amount recorded on Receipt.
+- **Suppliers & Purchase Orders:** Supplier CRUD, PO CRUD with line items, receive PO (auto-increments stock). Routes: /suppliers, /suppliers/{id}/purchase-orders, /purchase-orders/{id}/receive.
 
 ### 5.3 Admin
 
-- Dashboard (today revenue, profit, VAT, tills; low stock); Z-Report; Manual Backup.
+- Dashboard (today revenue, profit, VAT, tills; low stock widget from /reports/low-stock).
+- **Advanced Reports:** Top products, slow movers, hourly heatmap, low stock (date-range). GET /reports/top-products, /reports/slow-movers, /reports/hourly-heatmap, /reports/low-stock.
 - Sales Reports (date range, bar/pie charts, CSV export).
 - Users & Staff (list, create, edit; role; PIN; Admin PIN for Close Shift).
-- Customers / Credit (list, search, create, edit, record payment; debt limit).
-- Tax & eTIMS (date range; Export KRA eTIMS CSV; eTIMS optional toggle; VSCU payload for integration).
-- Settings & Backups (shop info; auto-print, sound, low stock; backup history; Connection mode & Host PC address).
+- Customers / Credit (list, search, create, edit, record payment; debt limit; loyalty points view + add/redeem).
+- **Loyalty Points:** Auto-award 1pt per KSh100 on every completed sale. Manual add/redeem via POST /customers/{id}/add-points.
+- Tax & eTIMS (date range; Export KRA eTIMS CSV; eTIMS optional toggle; VSCU payload; POST /tax/submit-to-etims stub when ENABLE_ETIMS=true).
+- Settings & Backups (shop info; receipt header/footer/VAT rate; auto-print, sound, low stock; backup history + restore; Connection mode & Host PC address).
+- **Receipt Customization:** receipt_header, receipt_footer, vat_rate fields in StoreSettings, editable in Admin > Settings.
 - Role-based access (cashier vs admin).
 
 ### 5.4 Backend API
 
-- Health, products CRUD, transactions (cash/M-Pesa/credit; shift_id, customer_id, is_return; stock deduction).
+- Health (`GET /system/health` returns Python version, DB size, uptime), products CRUD, transactions (cash/M-Pesa/credit/bank; shift_id, customer_id, is_return; stock deduction; auto-award loyalty points).
 - Shifts, customers, held orders, M-Pesa (STK, callback, verify-manual, C2B, verify status).
-- Print (receipt, kick-drawer); inventory upload; settings; system backup/list/download.
-- Tax (etims-csv, vscu-payload); reports; dashboard; users (login, verify-admin-pin).
+- Print (receipt, kick-drawer); inventory upload + adjust; settings; system backup/list/download/restore.
+- Tax (etims-csv, vscu-payload, submit-to-etims stub); reports (standard + advanced); dashboard; users (login, verify-admin-pin).
+- Discounts CRUD (`/discounts`); Suppliers & Purchase Orders (`/suppliers`, `/purchase-orders`).
+- Price override audit log (`POST /transactions/price-override-log`).
 - Optional API key auth when `API_KEY` env is set.
 
 ### 5.5 Hardware and touch
@@ -184,7 +192,7 @@ When changing behavior (e.g. new payment method, new role), update **§8** and *
 
 ## 9. Acceptance criteria (in sync with product decisions)
 
-Testable criteria per area. Backend API criteria are covered by TestSprite tests (see **testsprite_tests/**). Keep this section aligned with §8 and with implemented features.
+Testable criteria per area. Backend API criteria are covered by pytest tests (see **backend/tests/**). Keep this section aligned with §8 and with implemented features.
 
 | Area | Acceptance criteria | TestSprite / test reference |
 |------|---------------------|-----------------------------|
@@ -207,6 +215,6 @@ Testable criteria per area. Backend API criteria are covered by TestSprite tests
 - **README.md** – Installation (installer vs source), usage, multi-terminal, build.
 - **docs/PRD.md** – This document (product requirements, decisions, acceptance criteria, deployment).
 - **docs/TEST_CREDENTIALS.md** – Test user accounts (admin, cashier, jane) and Admin PIN; non-production only.
-- **docs/TESTING.md** – Testing strategy, semantic selectors, targeted reruns, commit guidance.
+- **docs/TESTING.md** – Testing strategy, targeted reruns, commit guidance.
 
 All product requirements, decisions, and acceptance criteria are defined in this PRD; README remains the entry point for setup and usage.

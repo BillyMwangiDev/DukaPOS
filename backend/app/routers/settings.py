@@ -1,5 +1,5 @@
 """Store settings API: shop name, KRA PIN, M-Pesa Till, contact. Persisted in DB."""
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
@@ -23,6 +23,9 @@ class StoreSettingsRead(BaseModel):
     auto_backup_enabled: bool = True
     staff_limit: int = 5
     master_ip: str = "127.0.0.1"
+    receipt_header: str = ""
+    receipt_footer: str = "Thank you for shopping with us!"
+    vat_rate: float = 16.0
 
 
 class StoreSettingsUpdate(BaseModel):
@@ -37,6 +40,9 @@ class StoreSettingsUpdate(BaseModel):
     auto_backup_enabled: bool | None = None
     staff_limit: int | None = None
     master_ip: str | None = None
+    receipt_header: str | None = None
+    receipt_footer: str | None = None
+    vat_rate: float | None = None
 
 
 @router.get("/store", response_model=StoreSettingsRead)
@@ -69,7 +75,10 @@ def get_store_settings():
             sound_enabled=getattr(row, "sound_enabled", True),
             auto_backup_enabled=getattr(row, "auto_backup_enabled", True),
             staff_limit=getattr(row, "staff_limit", 5),
-            master_ip=getattr(row, "master_ip", "127.0.0.1")
+            master_ip=getattr(row, "master_ip", "127.0.0.1"),
+            receipt_header=getattr(row, "receipt_header", ""),
+            receipt_footer=getattr(row, "receipt_footer", "Thank you for shopping with us!"),
+            vat_rate=getattr(row, "vat_rate", 16.0),
         )
 
 
@@ -104,6 +113,14 @@ def update_store_settings(data: StoreSettingsUpdate):
             row.staff_limit = data.staff_limit
         if data.master_ip is not None:
             row.master_ip = data.master_ip
+        if data.receipt_header is not None:
+            row.receipt_header = data.receipt_header
+        if data.receipt_footer is not None:
+            row.receipt_footer = data.receipt_footer
+        if data.vat_rate is not None:
+            if data.vat_rate < 0 or data.vat_rate > 100:
+                raise HTTPException(status_code=400, detail="vat_rate must be between 0 and 100")
+            row.vat_rate = data.vat_rate
         session.add(row)
         session.commit()
         session.refresh(row)
@@ -118,5 +135,8 @@ def update_store_settings(data: StoreSettingsUpdate):
             sound_enabled=getattr(row, "sound_enabled", True),
             auto_backup_enabled=getattr(row, "auto_backup_enabled", True),
             staff_limit=getattr(row, "staff_limit", 5),
-            master_ip=getattr(row, "master_ip", "127.0.0.1")
+            master_ip=getattr(row, "master_ip", "127.0.0.1"),
+            receipt_header=getattr(row, "receipt_header", ""),
+            receipt_footer=getattr(row, "receipt_footer", "Thank you for shopping with us!"),
+            vat_rate=getattr(row, "vat_rate", 16.0),
         )

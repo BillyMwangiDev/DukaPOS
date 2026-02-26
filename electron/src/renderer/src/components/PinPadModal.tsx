@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Delete } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { NUMPAD_KEYS } from "@/lib/constants";
 
 export interface PinPadModalProps {
   open: boolean;
@@ -22,8 +23,6 @@ export interface PinPadModalProps {
   /** Show as dots (default true). */
   maskInput?: boolean;
 }
-
-const NUMPAD_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "C"];
 
 export function PinPadModal({
   open,

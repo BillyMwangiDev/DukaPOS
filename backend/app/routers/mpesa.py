@@ -1,5 +1,6 @@
 """M-Pesa Daraja: STK Push, callback webhook, C2B confirmation with automatic WebSocket notification."""
 import json
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 from urllib.request import Request as UrlRequest, urlopen
@@ -16,6 +17,38 @@ from app.config import config
 from app.websocket_manager import manager, EventType, create_event
 
 router = APIRouter(prefix="/mpesa", tags=["mpesa"])
+logger = logging.getLogger("dukapos.mpesa")
+
+# Known Safaricom Daraja callback IP ranges (as of 2025).
+# Kept as a safety net; configure MPESA_ALLOWED_IPS in .env to override.
+_SAFARICOM_IPS = {
+    "196.201.214.200", "196.201.214.206", "196.201.213.114",
+    "196.201.214.207", "196.201.214.208", "196.201.213.44",
+    "196.201.214.55", "196.201.214.98", "196.201.214.200",
+    "127.0.0.1", "::1",  # Always allow localhost (dev/testing)
+}
+
+
+def _check_mpesa_ip(request: Request) -> None:
+    """
+    Log and optionally enforce IP allowlist on Daraja webhook callbacks.
+    Set MPESA_ALLOWED_IPS=ip1,ip2,... in .env to restrict access to specific IPs.
+    If unset, uses the built-in Safaricom IP list (log-only, not enforced strictly).
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    allowed_env = config("MPESA_ALLOWED_IPS", default="").strip()
+    if allowed_env:
+        allowed = {ip.strip() for ip in allowed_env.split(",") if ip.strip()}
+    else:
+        allowed = _SAFARICOM_IPS
+
+    if client_ip not in allowed:
+        logger.warning(f"M-Pesa webhook from unexpected IP: {client_ip} (allowed: {allowed})")
+        # Only hard-block if MPESA_ALLOWED_IPS is explicitly configured
+        if allowed_env:
+            raise HTTPException(status_code=403, detail="Webhook source IP not allowed")
+    else:
+        logger.info(f"M-Pesa webhook from {client_ip}")
 
 
 def _extract_stk_callback_result_code(body: dict) -> Optional[int]:
@@ -79,6 +112,12 @@ def stk_push(data: STKPushRequest):
     Trigger M-Pesa STK Push (Lipa Na M-Pesa Online).
     Requires CONSUMER_KEY, CONSUMER_SECRET (and optionally DARAJA_PASSKEY, DARAJA_SHORTCODE, DARAJA_CALLBACK_URL).
     """
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="amount must be greater than 0")
+    if data.amount > 500_000:
+        raise HTTPException(status_code=400, detail="amount exceeds maximum STK Push limit (500,000)")
+    if not data.phone or not data.phone.strip():
+        raise HTTPException(status_code=400, detail="phone number is required")
     try:
         result = send_stk_push(data.phone, data.amount)
         if result.get("error"):
@@ -88,10 +127,10 @@ def stk_push(data: STKPushRequest):
             )
         return result
     except ValueError as e:
-        if "CONSUMER_KEY" in str(e) or "must be set" in str(e):
+        if "must be set" in str(e) or "CONSUMER_KEY" in str(e) or "MPESA_CONSUMER" in str(e):
             raise HTTPException(
                 status_code=503,
-                detail="M-Pesa not configured. Set CONSUMER_KEY and CONSUMER_SECRET.",
+                detail="M-Pesa not configured. Set MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET in .env.",
             ) from e
         raise HTTPException(status_code=502, detail=str(e)) from e
 
@@ -105,6 +144,7 @@ async def mpesa_stk_callback(request: Request):
     Broadcasts WebSocket event to all connected POS terminals.
     Always returns 200 so Daraja does not retry.
     """
+    _check_mpesa_ip(request)
     try:
         body = await request.json()
     except Exception:
@@ -123,6 +163,7 @@ async def mpesa_stk_callback(request: Request):
             ).first()
             if r:
                 r.payment_status = "COMPLETED"
+                r.mpesa_code = receipt_code or r.mpesa_code
                 r.reference_code = receipt_code or r.reference_code
                 tx_amount = r.total_amount
                 db_id = r.id
@@ -188,6 +229,7 @@ async def mpesa_c2b_confirmation(request: Request):
     Always return 200 so Daraja does not retry.
     See docs/MPESA_VERIFICATION.md and https://mpesa-docs.vercel.app/c2b
     """
+    _check_mpesa_ip(request)
     try:
         body = await request.json()
     except Exception:
@@ -213,7 +255,7 @@ async def mpesa_c2b_confirmation(request: Request):
         candidates = list(
             session.exec(
                 select(Receipt)
-                .where(Receipt.payment_type == "MOBILE")
+                .where(Receipt.payment_type.in_(["MOBILE", "BANK"]))
                 .where(Receipt.payment_status == "PENDING")
                 .where(Receipt.total_amount >= trans_amount - 0.01)
                 .where(Receipt.total_amount <= trans_amount + 0.01)
@@ -322,6 +364,7 @@ async def mpesa_c2b_validation(request: Request):
 
     For most POS use cases, we accept all payments by default.
     """
+    _check_mpesa_ip(request)
     try:
         await request.json()
     except Exception:
@@ -347,6 +390,6 @@ def transaction_status(checkout_request_id: str):
             raise HTTPException(status_code=502, detail=result.get("error", "Daraja error"))
         return result
     except ValueError as e:
-        if "CONSUMER_KEY" in str(e) or "must be set" in str(e):
-            raise HTTPException(status_code=503, detail="M-Pesa not configured.") from e
+        if "must be set" in str(e) or "CONSUMER_KEY" in str(e) or "MPESA_CONSUMER" in str(e):
+            raise HTTPException(status_code=503, detail="M-Pesa not configured. Set MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET.") from e
         raise HTTPException(status_code=502, detail=str(e)) from e

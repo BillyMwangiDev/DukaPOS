@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { apiUrl } from "@/lib/api";
 import { toast } from "sonner";
+import { Calculator } from "lucide-react";
 
 interface ZReport {
   shift_id: number;
@@ -30,11 +31,34 @@ interface CloseShiftModalProps {
   onClosed: () => void;
 }
 
+const DENOMINATIONS = [
+  { value: 1000, label: "KSh 1000" },
+  { value: 500,  label: "KSh 500" },
+  { value: 200,  label: "KSh 200" },
+  { value: 100,  label: "KSh 100" },
+  { value: 50,   label: "KSh 50" },
+  { value: 20,   label: "KSh 20" },
+  { value: 10,   label: "KSh 10" },
+  { value: 5,    label: "KSh 5" },
+  { value: 1,    label: "KSh 1" },
+];
+
+function makeDenomCounts() {
+  return Object.fromEntries(DENOMINATIONS.map((d) => [d.value, 0]));
+}
+
 export function CloseShiftModal({ open, shiftId, onClose, onClosed }: CloseShiftModalProps) {
   const [closingActual, setClosingActual] = useState("");
   const [zReport, setZReport] = useState<ZReport | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDenomCount, setShowDenomCount] = useState(false);
+  const [denomCounts, setDenomCounts] = useState<Record<number, number>>(makeDenomCounts());
+
+  const denomTotal = DENOMINATIONS.reduce(
+    (sum, d) => sum + d.value * (denomCounts[d.value] || 0),
+    0
+  );
 
   useEffect(() => {
     if (open && shiftId) {
@@ -50,8 +74,15 @@ export function CloseShiftModal({ open, shiftId, onClose, onClosed }: CloseShift
     } else {
       setZReport(null);
       setClosingActual("");
+      setShowDenomCount(false);
+      setDenomCounts(makeDenomCounts());
     }
   }, [open, shiftId]);
+
+  const applyDenomTotal = useCallback(() => {
+    setClosingActual(denomTotal.toFixed(2));
+    setShowDenomCount(false);
+  }, [denomTotal]);
 
   const handleCloseShift = async () => {
     const actual = parseFloat(closingActual);
@@ -92,7 +123,7 @@ export function CloseShiftModal({ open, shiftId, onClose, onClosed }: CloseShift
         <DialogHeader>
           <DialogTitle>Close Shift</DialogTitle>
           <DialogDescription>
-            Z-Report: Expected vs Actual cash. Enter actual cash in drawer to close.
+            Z-Report: Expected vs Actual cash. Count denominations or enter amount directly.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-4">
@@ -125,6 +156,55 @@ export function CloseShiftModal({ open, shiftId, onClose, onClosed }: CloseShift
                   <span>{zReport.transaction_count}</span>
                 </div>
               </div>
+
+              {/* Denomination count toggle */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setShowDenomCount((v) => !v)}
+              >
+                <Calculator className="mr-2 size-4" />
+                {showDenomCount ? "Hide denomination count" : "Count by denomination"}
+              </Button>
+
+              {showDenomCount && (
+                <div className="rounded-md border p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Count Cash in Drawer
+                  </p>
+                  <div className="grid grid-cols-3 gap-x-3 gap-y-2">
+                    {DENOMINATIONS.map((d) => (
+                      <div key={d.value} className="flex flex-col gap-0.5">
+                        <Label className="text-xs text-muted-foreground">{d.label}</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={denomCounts[d.value] || ""}
+                          placeholder="0"
+                          onChange={(e) =>
+                            setDenomCounts((prev) => ({
+                              ...prev,
+                              [d.value]: Math.max(0, parseInt(e.target.value, 10) || 0),
+                            }))
+                          }
+                          className="h-8 text-sm font-mono bg-muted/50"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t mt-2">
+                    <span className="text-sm font-medium">
+                      Counted total: <span className="font-mono text-emerald-600">KSh {denomTotal.toFixed(2)}</span>
+                    </span>
+                    <Button size="sm" onClick={applyDenomTotal} disabled={denomTotal === 0}>
+                      Use this amount
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <Label>Actual cash in drawer (KSh)</Label>
                 <Input
@@ -134,7 +214,7 @@ export function CloseShiftModal({ open, shiftId, onClose, onClosed }: CloseShift
                   value={closingActual}
                   onChange={(e) => setClosingActual(e.target.value)}
                   className="mt-1 h-12 text-lg font-mono"
-                  autoFocus
+                  autoFocus={!showDenomCount}
                 />
               </div>
               <Button

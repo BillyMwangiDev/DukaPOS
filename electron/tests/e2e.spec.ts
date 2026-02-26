@@ -1,67 +1,73 @@
 // @ts-ignore
 import { _electron as electron } from 'playwright';
 // @ts-ignore
-import { test, expect } from '@playwright/test';
+import { test, expect } from 'playwright/test';
 import path from 'path';
 
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+const ELECTRON_PATH = path.resolve(PROJECT_ROOT, 'node_modules/electron/dist/electron.exe');
+
 test.describe('DukaPOS Smoke Tests', () => {
-  let electronApp;
-  let window;
+  let electronApp: any;
+  let window: any;
 
   test.beforeAll(async () => {
     // Launch Electron app
     electronApp = await electron.launch({
-      args: [path.join(__dirname, '../')],
+      executablePath: ELECTRON_PATH,
+      args: [PROJECT_ROOT],
+      env: {
+        ...process.env,
+        E2E_TEST: 'true'
+      }
     });
 
     window = await electronApp.firstWindow();
   });
 
   test.afterAll(async () => {
-    await electronApp.close();
+    if (electronApp) await electronApp.close();
   });
 
-  test('Auth: Cashier PIN entry correctly unlocks the system', async () => {
+  test('Auth: Standard login unlocks the system', async () => {
+    // Debug: Log content
+    console.log('DEBUG: Page Content follows:');
+    console.log(await window.content());
+
     // Wait for login screen
-    await window.waitForSelector('text=DukaPOS');
+    await window.waitForSelector('text=DukaPOS', { timeout: 10000 });
 
-    // Simulate triple tap on logo to trigger Dev PIN if needed, 
-    // but here we just test standard login if possible.
-    // If it's a fresh DB, the setup.bat should have seeded 'admin' / '0000'
-
-    // Check if we are on login screen
-    const pinPad = await window.isVisible('text=Enter PIN');
-    if (pinPad) {
-      // Enter 0000
-      for (let i = 0; i < 4; i++) {
-        await window.click('button:text("0")');
-      }
-    }
+    // Enter credentials (seeded during setup)
+    await window.fill('input#login-username', 'admin');
+    await window.fill('input#login-password', '0000');
+    await window.click('button:text("Sign in")');
 
     // Verify dashboard appears
     await expect(window.locator('text=Point of Sale')).toBeVisible({ timeout: 10000 });
   });
 
   test('Transaction: Full sale flow generates valid ID', async () => {
-    // Add product to cart (assuming products exist)
+    // Go to POS if not already there
     await window.click('text=Point of Sale');
 
-    // Click on the first product in the list if any
+    // Click on the first product in the list
     const firstProduct = window.locator('.product-card').first();
     await firstProduct.waitFor();
     await firstProduct.click();
 
-    // Click Pay
-    await window.click('button:text("Pay")');
+    // Click M-PESA in CommandCenter
+    await window.click('button:text("M-PESA")');
 
-    // Select Mobile Payment
-    await window.click('text=Mobile');
-    await window.click('text=Manual Confirm (M-Pesa)');
+    // Select Till mode in PaymentModal
+    await window.click('button:text("Till")');
+
+    // Manual Confirm
+    await window.click('button:text("Manual Confirm (M-Pesa)")');
 
     // Finalize
     await window.click('button:text("Finalize & Receipt")');
 
-    // Check for success toast or receipt view
+    // Check for success toast
     await expect(window.locator('text=Sale completed!')).toBeVisible();
   });
 

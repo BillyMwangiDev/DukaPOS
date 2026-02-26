@@ -8,10 +8,9 @@ Testing strategy, conventions, and how to run tests quickly.
 
 | Layer | Where | How to run |
 |-------|--------|------------|
-| **Backend unit** | `backend/tests/` | `npm run test` or `cd backend && pytest tests -v` |
-| **Backend API (TestSprite)** | `testsprite_tests/TC*.py` | `npm run test:testsprite` or `python testsprite_tests/run_all_tests.py` |
-| **Frontend unit** | `electron/src/renderer/` | `npm run test:frontend` |
-| **E2E / UI** | (future) | Prefer semantic selectors and explicit waits (see §2). |
+| **Backend unit/API** | `backend/tests/` | `cd backend && .venv\Scripts\python.exe -m pytest tests -v` |
+| **Frontend unit** | `electron/src/renderer/` | `cd electron\src\renderer && npm run test` |
+| **E2E / UI** | `electron/tests/` | `cd electron && npx playwright test` |
 
 Acceptance criteria are kept in **docs/PRD.md** (§9) and aligned with product decisions (§8).
 
@@ -26,7 +25,7 @@ For **E2E, UI, or browser-based tests**, prefer:
   - `role` and `aria-*` (e.g. `getByRole("button", { name: "Complete Sale" })`, `aria-label`, `aria-checked`) so tests reflect accessibility and intent.
   - Avoid relying on internal class names or DOM structure that may change with styling.
 - **Explicit waits** instead of fixed `sleep()`:
-  - Wait for a specific element or state (e.g. “receipt printed”, “cart empty”) with a timeout.
+  - Wait for a specific element or state (e.g. "receipt printed", "cart empty") with a timeout.
   - Use `wait-on` or framework helpers (e.g. Playwright `expect(locator).toBeVisible()`) rather than arbitrary delays.
 
 The renderer already uses `aria-*` in places (e.g. Settings toggles, pagination). When adding UI tests, add `data-testid` where needed and document selectors in this doc or in test files.
@@ -37,41 +36,63 @@ The renderer already uses `aria-*` in places (e.g. Settings toggles, pagination)
 
 Use **small, targeted reruns** for fast iteration instead of the full suite every time.
 
-### TestSprite (backend API)
+### Backend tests (pytest)
 
-- **Run a subset by test ID** (e.g. TC001, TC002, TC005):
+- **Run the full backend suite**:
   ```bash
-  python testsprite_tests/run_all_tests.py TC001 TC005
+  cd backend && .venv\Scripts\python.exe -m pytest tests -vv
   ```
-- **Run a single test file**:
-  ```bash
-  python testsprite_tests/TC002_products_crud_operations_should_work_correctly.py
-  ```
-- **Run full suite**:
-  ```bash
-  npm run test:testsprite
-  ```
-
-Backend must be running on port 8000. See **testsprite_tests/README.md**.
-
-### Backend unit
-
 - **Run one test file**:
   ```bash
-  cd backend && python -m pytest tests/test_health.py -v
+  cd backend && .venv\Scripts\python.exe -m pytest tests/test_comprehensive.py -v
   ```
 - **Run one test by name**:
   ```bash
-  cd backend && python -m pytest tests/test_users_login.py::test_login_success_admin -v
+  cd backend && .venv\Scripts\python.exe -m pytest tests/test_comprehensive.py::test_health_check -v
+  ```
+- **Run production-critical tests only**:
+  ```bash
+  cd backend && .venv\Scripts\python.exe -m pytest tests/test_production_critical.py -v
+  ```
+
+### Frontend tests (Vitest)
+
+- **Run all frontend tests**:
+  ```bash
+  cd electron\src\renderer && npm run test
+  ```
+
+### E2E tests (Playwright)
+
+- **Run all E2E tests**:
+  ```bash
+  cd electron && npx playwright test
+  ```
+
+### Unified test runner
+
+- **Run all layers at once**:
+  ```bash
+  .\run_all_tests.bat
   ```
 
 ---
 
-## 4. Commit changes regularly
+## 4. Test files reference
+
+| File | Purpose |
+|------|---------|
+| `backend/tests/conftest.py` | Pytest fixtures (test DB, session, client) |
+| `backend/tests/test_comprehensive.py` | Main suite: 21 tests covering health, products, transactions, shifts, customers, orders, settings, reports, bank, discounts, suppliers |
+| `backend/tests/test_production_critical.py` | VAT logic, station-prefixed receipt IDs, staff limit enforcement |
+
+---
+
+## 5. Commit changes regularly
 
 **Commit changes regularly** so that:
 
-- Diff-based regeneration (e.g. TestSprite, codegen, CI) stays accurate.
+- Diff-based regeneration (e.g. codegen, CI) stays accurate.
 - History reflects small, reviewable steps.
 - Rollback and bisect are easier.
 

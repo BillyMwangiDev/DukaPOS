@@ -24,6 +24,7 @@ import { formatKsh } from "@/lib/format";
 interface DailyStats {
   totalCash: number;
   totalMpesa: number;
+  totalBank: number;
   netProfit: number;
   vatCollected: number;
   activeTills: number;
@@ -34,6 +35,7 @@ export interface LowStockProduct {
   name: string;
   category?: string;
   stock: number;
+  threshold?: number;
 }
 
 interface DashboardScreenProps {
@@ -52,7 +54,7 @@ export function DashboardScreen({
   onManualBackup,
   readOnly = false,
 }: DashboardScreenProps) {
-  const totalToday = stats.totalCash + stats.totalMpesa;
+  const totalToday = stats.totalCash + stats.totalMpesa + stats.totalBank;
 
   return (
     <div className="p-6 space-y-6">
@@ -81,6 +83,10 @@ export function DashboardScreen({
               <div className="text-xs text-muted-foreground flex justify-between">
                 <span>M-Pesa:</span>
                 <span className="font-mono">Ksh {stats.totalMpesa.toLocaleString()}</span>
+              </div>
+              <div className="text-xs text-muted-foreground flex justify-between font-medium text-purple-600 dark:text-purple-400">
+                <span>Bank:</span>
+                <span className="font-mono">Ksh {stats.totalBank.toLocaleString()}</span>
               </div>
             </div>
           </CardContent>
@@ -158,25 +164,30 @@ export function DashboardScreen({
               <TableHeader>
                 <TableRow>
                   <TableHead>Item Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Remaining Qty</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead className="text-right">In Stock</TableHead>
+                  <TableHead className="text-right">Threshold</TableHead>
+                  <TableHead className="text-right">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {lowStockProducts.map((product) => (
                   <TableRow key={product.id}>
                     <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{product.category ?? "—"}</Badge>
-                    </TableCell>
                     <TableCell className="text-right">
                       <span className="font-mono text-rose-500 font-semibold">
                         {product.stock}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Badge variant="destructive">Reorder</Badge>
+                      <span className="font-mono text-muted-foreground text-sm">
+                        {product.threshold ?? 10}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {product.stock === 0
+                        ? <Badge variant="destructive">Out of Stock</Badge>
+                        : <Badge variant="destructive">Reorder</Badge>
+                      }
                     </TableCell>
                   </TableRow>
                 ))}

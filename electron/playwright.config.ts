@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig } from 'playwright/test';
 
 export default defineConfig({
   testDir: './tests',
@@ -13,5 +13,7 @@ export default defineConfig({
   reporter: 'html',
   use: {
     trace: 'on-first-retry',
+    // Use system Chrome via channel; remove hardcoded executablePath for cross-machine compatibility
+    channel: 'chrome',
   },
 });

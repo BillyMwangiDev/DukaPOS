@@ -1,6 +1,6 @@
 import logo from "@/assets/poslogo.png";
 import { useRef } from "react";
-import { Search, Wifi, Printer, User, Moon, Sun, Lock } from "lucide-react";
+import { Search, Wifi, Printer, User, Moon, Sun, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
@@ -15,6 +15,8 @@ interface HeaderProps {
   onSearch: (query: string) => void;
   isOnline: boolean;
   isPrinterConnected: boolean;
+  /** Whether the WebSocket backend connection is live. */
+  wsConnected?: boolean;
   darkMode: boolean;
   onToggleDarkMode: () => void;
   returnMode?: boolean;
@@ -26,13 +28,13 @@ interface HeaderProps {
   onLogout?: () => void;
   onBarcodeSearch?: (barcode: string) => void;
   stationId?: string;
-  onLock?: () => void;
 }
 
 export function Header({
   onSearch,
   isOnline,
   isPrinterConnected,
+  wsConnected,
   darkMode,
   onToggleDarkMode,
   returnMode,
@@ -42,7 +44,6 @@ export function Header({
   onLogout,
   onBarcodeSearch,
   stationId,
-  onLock,
 }: HeaderProps) {
   const defaultRef = useRef<HTMLInputElement>(null);
   const inputRef = searchInputRef ?? defaultRef;
@@ -120,6 +121,13 @@ export function Header({
           <span className="text-sm">
             {isOnline ? "Online" : "Offline"}
           </span>
+          <span
+            className={cn(
+              "inline-block w-2 h-2 rounded-full ml-0.5",
+              wsConnected ? "bg-green-300" : "bg-yellow-300"
+            )}
+            title={wsConnected ? "WebSocket: connected" : "WebSocket: disconnected"}
+          />
         </div>
         <div
           className={cn(
@@ -134,18 +142,12 @@ export function Header({
         <Button variant="ghost" size="icon" onClick={onToggleDarkMode} className="rounded-md">
           {darkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
         </Button>
-        {onLock && (
-          <Button variant="ghost" size="icon" onClick={onLock} className="rounded-md" title="Lock Terminal">
-            <Lock className="size-5 text-muted-foreground" />
-          </Button>
-        )}
         {currentUser && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground truncate max-w-[120px]" title={currentUser.username}>
-              {currentUser.username}
-            </span>
+            <span className="text-sm font-medium">{currentUser.username}</span>
             {onLogout && (
-              <Button variant="ghost" size="sm" onClick={onLogout} className="text-muted-foreground">
+              <Button variant="ghost" size="sm" onClick={onLogout} className="rounded-md">
+                <LogOut className="size-4 mr-1" />
                 Logout
               </Button>
             )}

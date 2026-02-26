@@ -18,20 +18,40 @@ export interface CartItem {
   priceWholesale?: number | null;
   /** Min quantity to use wholesale price. */
   wholesaleThreshold?: number | null;
+  /** Campaign Discount type (percent or fixed) */
+  itemDiscountType?: "percent" | "fixed" | null;
+  itemDiscountValue?: number | null;
+  /** ISO timestamp for expiration, or null if indefinite */
+  itemDiscountExpiry?: string | null;
   quantity: number;
 }
 
 /** Effective gross price per unit for a line (wholesale if qty >= threshold). */
 export function getLinePriceGross(item: CartItem): number {
   const qty = Math.abs(item.quantity);
+  let basePrice = item.priceGross;
+
   if (
     item.wholesaleThreshold != null &&
     item.priceWholesale != null &&
     qty >= item.wholesaleThreshold
   ) {
-    return item.priceWholesale;
+    basePrice = item.priceWholesale;
   }
-  return item.priceGross;
+
+  // Apply item-specific discount if active and not expired
+  if (item.itemDiscountType && item.itemDiscountValue != null && item.itemDiscountValue > 0) {
+    const isExpired = item.itemDiscountExpiry ? new Date(item.itemDiscountExpiry + "Z").getTime() < Date.now() : false;
+    if (!isExpired) {
+      if (item.itemDiscountType === "percent") {
+        basePrice = basePrice * (1 - item.itemDiscountValue / 100);
+      } else if (item.itemDiscountType === "fixed") {
+        basePrice = Math.max(0, basePrice - item.itemDiscountValue);
+      }
+    }
+  }
+
+  return basePrice;
 }
 
 interface CartState {
@@ -102,6 +122,7 @@ export const useCart = create<CartState>((set, get) => ({
   },
 
   updatePrice: (id, price) => {
+    if (price < 0 || !isFinite(price)) return;
     set({
       items: get().items.map((i) =>
         i.id === id ? { ...i, priceGross: price, priceWholesale: null, wholesaleThreshold: null } : i

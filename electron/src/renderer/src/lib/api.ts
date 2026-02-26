@@ -24,9 +24,6 @@ export function getApiBaseUrl(): string {
   return `http://localhost:${port}`;
 }
 
-/** @deprecated Use getApiBaseUrl() for reactive base; this is initial load only. */
-export const API_BASE_URL = DEFAULT_API_BASE;
-
 export function apiUrl(path: string): string {
   const base = getApiBaseUrl().replace(/\/$/, "");
   const p = path.startsWith("/") ? path : `/${path}`;

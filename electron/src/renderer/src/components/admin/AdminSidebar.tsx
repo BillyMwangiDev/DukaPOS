@@ -5,7 +5,6 @@ import {
   Package,
   Users,
   CreditCard,
-  FileText,
   Settings,
   ChevronLeft,
   Wifi,
@@ -13,6 +12,8 @@ import {
   Receipt,
   UserCheck,
   Terminal,
+  Truck,
+  Tags,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -32,17 +33,19 @@ const allMenuItems = [
   { id: "dashboard", label: "Dashboard", icon: Home },
   { id: "sales", label: "Sales Reports", icon: BarChart3 },
   { id: "detailed-sales", label: "Itemized Sales", icon: Receipt },
+  { id: "receipts-history", label: "Receipt History", icon: Receipt },
   { id: "cashier-audit", label: "Cashier Audit", icon: UserCheck },
+
   { id: "inventory", label: "Inventory / Stock", icon: Package },
+  { id: "suppliers", label: "Suppliers & POs", icon: Truck },
   { id: "users", label: "Users & Staff", icon: Users },
   { id: "customers", label: "Customers (Credit)", icon: CreditCard },
-  { id: "tax", label: "Tax & eTIMS", icon: FileText },
+  { id: "discounts", label: "Discounts & Promos", icon: Tags },
   { id: "settings", label: "Settings & Backups", icon: Settings },
   { id: "developer", label: "Developer Tools", icon: Terminal },
 ];
 
-// Cashiers can view reports but not cashier audit (admin only for accountability)
-const cashierMenuIds = ["dashboard", "sales", "detailed-sales", "inventory", "customers"];
+
 
 export function AdminSidebar({
   currentSection,
@@ -51,12 +54,8 @@ export function AdminSidebar({
   onToggleCollapse,
   shopName,
   isOnline,
-  userRole = "admin",
 }: AdminSidebarProps) {
-  const menuItems =
-    userRole === "cashier"
-      ? allMenuItems.filter((item) => cashierMenuIds.includes(item.id))
-      : allMenuItems;
+  const menuItems = allMenuItems;
   return (
     <aside
       className={cn(
@@ -106,6 +105,7 @@ export function AdminSidebar({
               <Button
                 key={item.id}
                 variant="ghost"
+                title={isCollapsed ? item.label : undefined}
                 className={cn(
                   "w-full justify-start",
                   isCollapsed && "justify-center px-2",

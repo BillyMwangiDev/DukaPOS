@@ -6,16 +6,28 @@ import { Label } from "@/components/ui/label";
 import { Terminal, Shield, Network, Activity, Save, RefreshCw } from "lucide-react";
 import { apiUrl } from "@/lib/api";
 import { toast } from "sonner";
-import { cn } from "@/lib/cn";
+
+interface SystemHealth {
+  python_version: string;
+  platform: string;
+  db_size_mb: number;
+  memory_mb: number | null;
+}
 
 export function DeveloperConsole() {
   const [stationId, setStationId] = useState("POS-01");
   const [masterIp, setMasterIp] = useState("127.0.0.1");
   const [staffLimit, setStaffLimit] = useState(5);
   const [isSaving, setIsSaving] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "error" | "success">("idle");
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
+
+  const [isDevAuthenticated, setIsDevAuthenticated] = useState(false);
+  const [devPassword, setDevPassword] = useState("");
 
   useEffect(() => {
+    // Only load data if authenticated
+    if (!isDevAuthenticated) return;
+
     // Load current developer-level settings
     async function loadDevSettings() {
       try {
@@ -30,8 +42,20 @@ export function DeveloperConsole() {
         console.error("Failed to load dev settings", e);
       }
     }
+    async function loadSystemHealth() {
+      try {
+        const res = await fetch(apiUrl("system/health"));
+        if (res.ok) {
+          const data: SystemHealth = await res.json();
+          setSystemHealth(data);
+        }
+      } catch {
+        // ignore — diagnostics are non-critical
+      }
+    }
     loadDevSettings();
-  }, []);
+    loadSystemHealth();
+  }, [isDevAuthenticated]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -58,12 +82,66 @@ export function DeveloperConsole() {
   };
 
   const triggerSync = () => {
-    setSyncStatus("syncing");
-    setTimeout(() => {
-      setSyncStatus("success");
-      toast.success("Manual sync completed");
-    }, 2000);
+    toast.info("Multi-PC sync not yet implemented", {
+      description: "Automatic database sync across multiple POS stations is a planned feature.",
+    });
   };
+
+  const handleUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(apiUrl("users/verify-admin-pin"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: devPassword }),
+      });
+      if (res.ok) {
+        setIsDevAuthenticated(true);
+        toast.success("Developer Console Unlocked");
+      } else {
+        toast.error("Invalid PIN");
+        setDevPassword("");
+      }
+    } catch {
+      toast.error("Authentication failed");
+      setDevPassword("");
+    }
+  };
+
+  if (!isDevAuthenticated) {
+    return (
+      <div className="flex items-center justify-center p-6 h-[80vh] animate-in">
+        <Card className="w-full max-w-md glass shadow-xl border-white/5">
+          <CardHeader className="text-center">
+            <div className="mx-auto p-3 bg-amber-500/10 text-amber-500 rounded-full w-fit mb-4">
+              <Terminal className="size-8" />
+            </div>
+            <CardTitle>Developer Access Required</CardTitle>
+            <CardDescription>Enter the developer password to access system overrides.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleUnlock} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="dev-password">Developer Password</Label>
+                <Input
+                  id="dev-password"
+                  type="password"
+                  autoFocus
+                  value={devPassword}
+                  onChange={(e) => setDevPassword(e.target.value)}
+                  placeholder="Enter password..."
+                />
+              </div>
+              <Button type="submit" className="w-full gap-2">
+                <Shield className="size-4" />
+                Unlock Console
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-4xl animate-in">
@@ -135,10 +213,9 @@ export function DeveloperConsole() {
                 variant="outline"
                 className="w-full gap-2"
                 onClick={triggerSync}
-                disabled={syncStatus === "syncing"}
               >
-                <RefreshCw className={cn("size-4", syncStatus === "syncing" && "animate-spin")} />
-                {syncStatus === "syncing" ? "Syncing..." : "Force Database Sync"}
+                <RefreshCw className="size-4" />
+                Force Database Sync
               </Button>
             </div>
           </CardContent>
@@ -155,20 +232,26 @@ export function DeveloperConsole() {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-3 rounded-lg border bg-muted/30">
-                <div className="text-xs text-muted-foreground">SQLite Version</div>
-                <div className="font-mono font-bold">3.41.2</div>
+                <div className="text-xs text-muted-foreground">Python Version</div>
+                <div className="font-mono font-bold">{systemHealth?.python_version ?? "—"}</div>
               </div>
               <div className="p-3 rounded-lg border bg-muted/30">
                 <div className="text-xs text-muted-foreground">API Status</div>
-                <div className="text-emerald-500 font-bold">ONLINE</div>
+                <div className={systemHealth ? "text-emerald-500 font-bold" : "text-muted-foreground font-bold"}>
+                  {systemHealth ? "ONLINE" : "—"}
+                </div>
               </div>
               <div className="p-3 rounded-lg border bg-muted/30">
                 <div className="text-xs text-muted-foreground">Database Size</div>
-                <div className="font-bold">12.4 MB</div>
+                <div className="font-bold">
+                  {systemHealth != null ? `${systemHealth.db_size_mb} MB` : "—"}
+                </div>
               </div>
               <div className="p-3 rounded-lg border bg-muted/30">
-                <div className="text-xs text-muted-foreground">Last Full Backup</div>
-                <div className="font-bold text-sm">2h ago</div>
+                <div className="text-xs text-muted-foreground">Memory Usage</div>
+                <div className="font-bold text-sm">
+                  {systemHealth?.memory_mb != null ? `${systemHealth.memory_mb} MB` : "—"}
+                </div>
               </div>
             </div>
           </CardContent>

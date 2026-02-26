@@ -19,6 +19,8 @@ dist-main/
 # DB
 *.db
 *.sqlite3
+*.db-shm
+*.db-wal
 
 # IDE
 .idea/
@@ -33,3 +35,16 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Test artifacts
+electron/playwright-report/
+electron/test-results/
+
+# Backups (keep out of git)
+backend/backups/
+
+# Debug / diagnostic scripts (one-off, not version-controlled)
+diag_log.txt
+inspect_database.py
+run_debug.bat
+run_diag.bat

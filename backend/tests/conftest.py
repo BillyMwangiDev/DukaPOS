@@ -1,29 +1,45 @@
 """
 Pytest fixtures for DukaPOS backend tests.
-Uses a file-based test SQLite DB so all connections see the same schema (avoids
-:memory: per-connection isolation). Test DB path: ./test_dukapos.db (gitignored).
+Uses a file-based test SQLite DB so all connections see the same schema.
 """
 import os
-
 import pytest
-
-# Use file-based test DB before any app/database import so all threads share it.
-# Use ABSOLUTE path to avoid CWD issues
-_backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-_test_db_path = os.path.join(_backend_dir, "test_dukapos.db")
-os.environ["DATABASE_URL"] = f"sqlite:///{_test_db_path}"
-
 from fastapi.testclient import TestClient
+from sqlmodel import Session
+
+# We must set this before importing app.database
+# Use a distinct name for testing to avoid conflicting with dev DB
+TEST_DB_NAME = "test_dukapos.db"
+os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_NAME}"
 
 from main import app
+from app.database import engine, create_db_and_tables
 
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_db():
+    """Create test DB tables once per session and seed default data."""
+    # Remove existing test DB if it exists to start fresh
+    if os.path.exists(TEST_DB_NAME):
+        try:
+            os.remove(TEST_DB_NAME)
+        except PermissionError:
+            pass  # Might be in use, but we'll try to overwrite/use it
+
+    create_db_and_tables()
+    yield
+    # Optional: cleanup after session
+    # if os.path.exists(TEST_DB_NAME):
+    #     os.remove(TEST_DB_NAME)
 
 @pytest.fixture
-def client() -> TestClient:
-    """FastAPI TestClient; DB is test_dukapos.db and seeded by app lifespan."""
-    # Ensure tables exist with same engine the app uses (lifespan may run in another context)
-    from app.database import create_db_and_tables
-    create_db_and_tables()
-    c = TestClient(app)
-    c.get("/health")  # trigger lifespan
-    return c
+def session():
+    """Provide a transactional session for each test."""
+    with Session(engine) as session:
+        yield session
+
+@pytest.fixture
+def client(session) -> TestClient:
+    """FastAPI TestClient using the test database."""
+    # We can override the dependency if the app uses get_session
+    # app.dependency_overrides[get_session] = lambda: session
+    return TestClient(app)

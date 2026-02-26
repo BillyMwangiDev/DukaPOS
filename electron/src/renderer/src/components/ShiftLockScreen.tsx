@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Lock, Delete, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { apiUrl } from "@/lib/api";
 import { toast } from "sonner";
 import type { LoggedInUser } from "./LoginScreen";
+import { NUMPAD_KEYS } from "@/lib/constants";
 
 interface ShiftLockScreenProps {
   user: LoggedInUser;
@@ -12,22 +13,11 @@ interface ShiftLockScreenProps {
   onLogout: () => void;
 }
 
-const NUMPAD_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "C"];
-
 export function ShiftLockScreen({ user, onUnlock, onLogout }: ShiftLockScreenProps) {
   const [pin, setPin] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
 
-  const handleKey = (key: string) => {
-    if (key === "C") {
-      setPin("");
-      return;
-    }
-    if (key === "" || pin.length >= 6) return;
-    setPin((p) => p + key);
-  };
-
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (pin.length < 4) return;
     setIsVerifying(true);
     try {
@@ -50,10 +40,37 @@ export function ShiftLockScreen({ user, onUnlock, onLogout }: ShiftLockScreenPro
     } finally {
       setIsVerifying(false);
     }
-  };
+  }, [pin, user.id, onUnlock]);
+
+  const handleKey = useCallback((key: string) => {
+    if (key === "C") {
+      setPin("");
+      return;
+    }
+    if (key === "" || pin.length >= 6) return;
+    setPin((p) => p + key);
+  }, [pin.length]);
+
+  // Handle keyboard input
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isVerifying) return;
+      if (e.key >= "0" && e.key <= "9") {
+        setPin((p) => (p.length < 6 ? p + e.key : p));
+      } else if (e.key === "Backspace") {
+        setPin((p) => p.slice(0, -1));
+      } else if (e.key === "Enter") {
+        handleSubmit();
+      } else if (e.key === "Escape" || e.key === "Delete") {
+        setPin("");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isVerifying, handleSubmit]);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-md flex flex-col items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] bg-background/95 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm flex flex-col items-center gap-8 animate-in fade-in zoom-in duration-300">
         {/* Header Information */}
         <div className="text-center space-y-2">
@@ -91,7 +108,7 @@ export function ShiftLockScreen({ user, onUnlock, onLogout }: ShiftLockScreenPro
                   key={key}
                   variant="ghost"
                   className={cn(
-                    "h-20 text-2xl font-semibold rounded-2xl border border-transparent hover:border-border hover:bg-muted/50 transition-all active:scale-95 shadow-sm",
+                    "h-20 text-2xl font-semibold rounded-2xl border border-transparent hover:border-border hover:bg-muted/50 transition-all active:scale-95 shadow-sm cursor-pointer",
                     key === "C" && "text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
                   )}
                   onClick={() => handleKey(key)}
@@ -116,7 +133,7 @@ export function ShiftLockScreen({ user, onUnlock, onLogout }: ShiftLockScreenPro
             </Button>
             <Button
               size="lg"
-              className="h-14 font-bold text-lg"
+              className="h-14 font-bold text-lg bg-[#43B02A] hover:bg-[#3a9824]"
               onClick={handleSubmit}
               disabled={pin.length < 4 || isVerifying}
             >
@@ -127,7 +144,7 @@ export function ShiftLockScreen({ user, onUnlock, onLogout }: ShiftLockScreenPro
       </div>
 
       {/* Bottom Branding */}
-      <div className="fixed bottom-12 flex items-center gap-2 opacity-30 grayscale blur-[0.5px]">
+      <div className="fixed bottom-12 flex items-center gap-2 opacity-50 grayscale">
         <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
           <span className="text-white font-bold text-lg">D</span>
         </div>

@@ -37,14 +37,19 @@ interface SoldItemDetail {
   quantity: number;
   unit_price: number;
   total_price: number;
-  payment_method: string;
-  transaction_id: number;
+  payment_type: string;
+  bank_name?: string | null;
+  reference_code?: string | null;
+  receipt_id: string;
+  db_id: number;
 }
+
 
 interface DetailedSalesSummary {
   total_revenue: number;
   total_cash: number;
   total_mobile: number;
+  total_bank: number;
   total_credit: number;
   total_items_sold: number;
   transaction_count: number;
@@ -147,9 +152,9 @@ export function DetailedReportsScreen() {
       const q = searchQuery.toLowerCase();
       items = items.filter(
         (item) =>
-          item.item_name.toLowerCase().includes(q) ||
-          item.payment_method.toLowerCase().includes(q) ||
-          item.transaction_id.toString().includes(q)
+          (item.item_name || "").toLowerCase().includes(q) ||
+          (item.payment_type || "").toLowerCase().includes(q) ||
+          (item.receipt_id || "").toLowerCase().includes(q)
       );
     }
 
@@ -170,7 +175,7 @@ export function DetailedReportsScreen() {
           cmp = a.total_price - b.total_price;
           break;
         case "payment_method":
-          cmp = a.payment_method.localeCompare(b.payment_method);
+          cmp = (a.payment_type || "").localeCompare(b.payment_type || "");
           break;
       }
       return sortDirection === "asc" ? cmp : -cmp;
@@ -180,9 +185,13 @@ export function DetailedReportsScreen() {
   }, [report?.items, searchQuery, sortField, sortDirection]);
 
   // Payment method icon and badge
-  const PaymentBadge = ({ method }: { method: string }) => {
-    const m = method.toUpperCase();
+  const PaymentBadge = ({ method, item }: { method: string, item?: SoldItemDetail }) => {
+    const m = (method || "").toUpperCase();
+    const bankInfo = item?.bank_name ? ` (${item.bank_name})` : "";
+
+
     if (m === "CASH") {
+
       return (
         <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 gap-1 border-none">
           <Banknote className="size-3" />
@@ -194,7 +203,7 @@ export function DetailedReportsScreen() {
       return (
         <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 gap-1 border-none">
           <Smartphone className="size-3" />
-          Mobile
+          M-Pesa
         </Badge>
       );
     }
@@ -206,6 +215,20 @@ export function DetailedReportsScreen() {
         </Badge>
       );
     }
+    if (m === "BANK") {
+      return (
+        <div className="flex flex-col gap-1 items-start">
+          <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 gap-1 border-none">
+            <CreditCard className="size-3" />
+            Bank{bankInfo}
+          </Badge>
+          {item?.reference_code && (
+            <span className="text-[10px] font-mono text-muted-foreground ml-1">{item.reference_code}</span>
+          )}
+        </div>
+      );
+    }
+
     return <Badge variant="outline">{method}</Badge>;
   };
 
@@ -314,7 +337,7 @@ export function DetailedReportsScreen() {
 
       {/* Summary Cards */}
       {report?.summary && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <Card className="glass shadow-xl border-white/5">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
@@ -348,12 +371,26 @@ export function DetailedReportsScreen() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-1">
                 <Smartphone className="size-4 text-emerald-500" />
-                Mobile Total
+                M-Pesa Total
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
                 {formatKsh(report.summary.total_mobile)}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass shadow-xl border-white/5">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-1">
+                <CreditCard className="size-4 text-purple-500" />
+                Bank Total
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold font-mono text-purple-600 dark:text-purple-400">
+                {formatKsh(report.summary.total_bank)}
               </div>
             </CardContent>
           </Card>
@@ -430,7 +467,7 @@ export function DetailedReportsScreen() {
                 </TableHeader>
                 <TableBody>
                   {filteredItems.map((item, idx) => (
-                    <TableRow key={`${item.transaction_id}-${idx}`}>
+                    <TableRow key={`${item.db_id}-${idx}`}>
                       <TableCell className="font-mono text-sm">
                         {period === "daily" ? item.time : `${item.date} ${item.time}`}
                       </TableCell>
@@ -443,8 +480,9 @@ export function DetailedReportsScreen() {
                         {formatKsh(item.total_price)}
                       </TableCell>
                       <TableCell>
-                        <PaymentBadge method={item.payment_method} />
+                        <PaymentBadge method={item.payment_type} item={item} />
                       </TableCell>
+
                     </TableRow>
                   ))}
                 </TableBody>
@@ -458,6 +496,6 @@ export function DetailedReportsScreen() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </div >
   );
 }

@@ -17,6 +17,7 @@ DukaPOS is a high-availability, offline-first Point of Sale (POS) ecosystem desi
 DukaPOS follows a modern micro-services inspired architecture where the frontend (Electron/React) communicates with a local sidecar service (FastAPI/SQLModel).
 
 - **Data Safety**: Automated daily backups and SQLite transactional integrity.
+- **High Concurrency**: SQLite Write-Ahead Logging (WAL) mode enabled for simultaneous read/write operations.
 - **Hardware Agnostic**: Supports any ESC/POS thermal printer and RJ11 cash drawer.
 - **Production Ready**: Optimized memory management and secure credential handling.
 
@@ -33,6 +34,7 @@ DukaPOS follows a modern micro-services inspired architecture where the frontend
 - **Credential Wizard**: Secure setup of M-Pesa (Daraja API) keys during installation.
 
 ### Financial Integrity
+- **Multi-Channel Payments**: Native support for CASH, M-Pesa (Mobile), and structured BANK transfers.
 - **Shift Auditing**: Comprehensive cashier shift tracking with float management.
 - **Credit Lifecycle**: End-to-end customer debt tracking and balance management.
 - **VAT Compliance**: 16% VAT-inclusive pricing model for the Kenyan market.
@@ -51,7 +53,6 @@ DukaPOS follows a modern micro-services inspired architecture where the frontend
 Detailed technical and operational documentation:
 
 - **[Installation Guide](installation.md)**: Deployment, Hardware, and LAN setup.
-- **[Customer Manual](customer_manual.md)**: End-to-end user guide for cashiers and admins.
 - **[Database Schema](DATABASE_SCHEMA.md)**: Detailed ERD and data architecture.
 - **[System Maintenance](installation.md#database-maintenance)**: Factory resets and data wiping.
 

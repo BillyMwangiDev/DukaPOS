@@ -45,7 +45,7 @@ When moving from testing to a live retail environment, use the maintenance scrip
 3. Follow the on-screen confirmation prompts.
 
 ### Manual Data Management
-- **Local Application Data**: All operational data is stored at `%APPDATA%/DukaPOS/data/pos.db`.
+- **Local Application Data**: All operational data is stored at `%APPDATA%/DukaPOS/data/dukapos.db`.
 - **System Backups**: Automated snapshots are created daily in the `backups` directory within the installation folder.
 
 ## Hardware Integration Guide

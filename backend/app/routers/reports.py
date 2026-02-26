@@ -23,6 +23,7 @@ class DailyRow(BaseModel):
 class PaymentTypeBreakdown(BaseModel):
     cash: float
     mobile: float
+    bank: float
     credit: float
 
 
@@ -70,6 +71,7 @@ def get_sales_report(
         by_day: dict[str, dict] = {}
         total_cash = 0.0
         total_mobile = 0.0
+        total_bank = 0.0
         total_credit = 0.0
 
         for r in receipts:
@@ -84,6 +86,8 @@ def get_sales_report(
                 total_cash += r.total_amount
             elif ptype in ["MOBILE", "MPESA"]:
                 total_mobile += r.total_amount
+            elif ptype == "BANK":
+                total_bank += r.total_amount
             elif ptype == "CREDIT":
                 total_credit += r.total_amount
 
@@ -93,7 +97,7 @@ def get_sales_report(
             for it in items:
                 prod = session.get(Product, it.product_id)
                 if prod:
-                    by_day[day]["profit"] += (it.price_at_moment - prod.price_buying) * it.quantity
+                    by_day[day]["profit"] += (it.price_at_moment - (prod.price_buying or 0.0)) * it.quantity
 
         days_sorted = sorted(by_day.keys())
         by_day_list = [
@@ -111,6 +115,7 @@ def get_sales_report(
             by_payment_type=PaymentTypeBreakdown(
                 cash=round(total_cash, 2),
                 mobile=round(total_mobile, 2),
+                bank=round(total_bank, 2),
                 credit=round(total_credit, 2),
             ),
         )
@@ -248,6 +253,8 @@ class SoldItemDetail(BaseModel):
     unit_price: float
     total_price: float
     payment_type: str
+    bank_name: Optional[str] = None
+    reference_code: Optional[str] = None
     receipt_id: str
     db_id: int
 
@@ -257,6 +264,7 @@ class DetailedSalesSummary(BaseModel):
     total_revenue: float
     total_cash: float
     total_mobile: float
+    total_bank: float
     total_credit: float
     total_items_sold: int
     transaction_count: int
@@ -313,6 +321,7 @@ def get_detailed_sales(
 
         total_cash = 0.0
         total_mobile = 0.0
+        total_bank = 0.0
         total_credit = 0.0
         total_items_sold = 0
         items_list: list[SoldItemDetail] = []
@@ -323,6 +332,8 @@ def get_detailed_sales(
                 total_cash += r.total_amount
             elif ptype in ["MOBILE", "MPESA"]:
                 total_mobile += r.total_amount
+            elif ptype == "BANK":
+                total_bank += r.total_amount
             elif ptype == "CREDIT":
                 total_credit += r.total_amount
 
@@ -344,11 +355,13 @@ def get_detailed_sales(
                     unit_price=round(it.price_at_moment, 2),
                     total_price=round(it.price_at_moment * it.quantity, 2),
                     payment_type=ptype,
+                    bank_name=r.bank_name,
+                    reference_code=r.reference_code,
                     receipt_id=r.receipt_id,
                     db_id=r.id or 0,
                 ))
 
-        total_revenue = total_cash + total_mobile + total_credit
+        total_revenue = total_cash + total_mobile + total_bank + total_credit
 
         return DetailedSalesResponse(
             period=period,
@@ -357,6 +370,7 @@ def get_detailed_sales(
                 total_revenue=round(total_revenue, 2),
                 total_cash=round(total_cash, 2),
                 total_mobile=round(total_mobile, 2),
+                total_bank=round(total_bank, 2),
                 total_credit=round(total_credit, 2),
                 total_items_sold=total_items_sold,
                 transaction_count=len(receipts),
@@ -376,7 +390,7 @@ def export_detailed_sales_csv(
 
     buf.write(f"# Detailed Sales Report - {report.period.title()}: {report.date}\n")
     buf.write(f"# Total Revenue: {report.summary.total_revenue}\n")
-    buf.write(f"# Cash: {report.summary.total_cash}, Mobile: {report.summary.total_mobile}, Credit: {report.summary.total_credit}\n")
+    buf.write(f"# Cash: {report.summary.total_cash}, Mobile: {report.summary.total_mobile}, Bank: {report.summary.total_bank}, Credit: {report.summary.total_credit}\n")
     buf.write(f"# Total Items Sold: {report.summary.total_items_sold}, Transactions: {report.summary.transaction_count}\n")
     buf.write("\n")
 
@@ -431,12 +445,13 @@ class ShiftSummary(BaseModel):
 
 
 class StaffPerformanceSummary(BaseModel):
-    """Summary of staff perfromance."""
+    """Summary of staff performance."""
     staff_id: int
     staff_name: str
     total_sales: float
     total_cash: float
     total_mobile: float
+    total_bank: float
     total_credit: float
     total_items_sold: int
     transaction_count: int
@@ -496,6 +511,7 @@ def get_staff_performance(
 
         total_cash = 0.0
         total_mobile = 0.0
+        total_bank = 0.0
         total_credit = 0.0
         total_items_sold = 0
         items_list: list[CashierSaleItem] = []
@@ -516,6 +532,9 @@ def get_staff_performance(
             elif ptype in ["MOBILE", "MPESA"]:
                 total_mobile += amount
                 shift_mobile[sid] = shift_mobile.get(sid, 0) + amount
+            elif ptype == "BANK":
+                total_bank += amount
+                shift_mobile[sid] = shift_mobile.get(sid, 0) + amount  # Bank goes to mobile for shift tracking
             elif ptype == "CREDIT":
                 total_credit += amount
                 shift_credit[sid] = shift_credit.get(sid, 0) + amount
@@ -562,7 +581,7 @@ def get_staff_performance(
                 transaction_count=shift_tx_count.get(sid, 0),
             ))
 
-        total_rev = total_cash + total_mobile + total_credit
+        total_rev = total_cash + total_mobile + total_bank + total_credit
         avg_tx = total_rev / len(receipts) if receipts else 0.0
 
         return StaffPerformanceResponse(
@@ -577,6 +596,7 @@ def get_staff_performance(
                 total_sales=round(total_rev, 2),
                 total_cash=round(total_cash, 2),
                 total_mobile=round(total_mobile, 2),
+                total_bank=round(total_bank, 2),
                 total_credit=round(total_credit, 2),
                 total_items_sold=total_items_sold,
                 transaction_count=len(receipts),
@@ -597,7 +617,7 @@ def export_staff_performance_csv(
     report = get_staff_performance(staff_id=staff_id, start_date=start_date, end_date=end_date)
     buf = StringIO()
     buf.write(f"# Staff Performance: {report.staff_name}\n")
-    buf.write(f"# Sales: {report.summary.total_sales}, Cash: {report.summary.total_cash}, Mobile: {report.summary.total_mobile}\n\n")
+    buf.write(f"# Sales: {report.summary.total_sales}, Cash: {report.summary.total_cash}, Mobile: {report.summary.total_mobile}, Bank: {report.summary.total_bank}\n\n")
 
     buf.write("# Shifts\n")
     buf.write("Shift ID,Opened At,Closed At,Expected Cash,Transactions\n")
@@ -622,3 +642,151 @@ def list_staff_names(session: Session = Depends(get_session)):
     """List staff for dropdowns."""
     staff = session.exec(select(Staff).where(Staff.is_active)).all()
     return [{"id": s.id, "username": s.username, "role": s.role} for s in staff]
+
+
+# ── Advanced Reports ──────────────────────────────────────────────────────────
+
+
+@router.get("/top-products")
+def top_products(
+    start_date: str = Query(..., description="YYYY-MM-DD"),
+    end_date: str = Query(..., description="YYYY-MM-DD"),
+    limit: int = Query(10, le=50),
+    session: Session = Depends(get_session),
+):
+    """Top products by quantity sold in the date range."""
+    try:
+        start = _parse_date(start_date)
+        end = _parse_date(end_date)
+    except ValueError:
+        start = datetime.now(timezone.utc) - timedelta(days=30)
+        end = datetime.now(timezone.utc)
+    end = end.replace(hour=23, minute=59, second=59)
+
+    receipts = session.exec(
+        select(Receipt).where(
+            Receipt.timestamp >= start,
+            Receipt.timestamp <= end,
+            Receipt.payment_status == "COMPLETED",
+            Receipt.is_return == False,  # noqa: E712
+        )
+    ).all()
+
+    product_qty: dict[int, int] = {}
+    product_rev: dict[int, float] = {}
+    for r in receipts:
+        items = session.exec(select(SaleItem).where(SaleItem.receipt_id == r.id)).all()
+        for it in items:
+            product_qty[it.product_id] = product_qty.get(it.product_id, 0) + it.quantity
+            product_rev[it.product_id] = product_rev.get(it.product_id, 0.0) + it.price_at_moment * it.quantity
+
+    sorted_ids = sorted(product_qty, key=lambda pid: product_qty[pid], reverse=True)[:limit]
+    result = []
+    for pid in sorted_ids:
+        prod = session.get(Product, pid)
+        result.append({
+            "product_id": pid,
+            "name": prod.name if prod else f"#{pid}",
+            "qty_sold": product_qty[pid],
+            "revenue": round(product_rev[pid], 2),
+        })
+    return result
+
+
+@router.get("/slow-movers")
+def slow_movers(
+    days: int = Query(30, ge=1, le=365),
+    limit: int = Query(20, le=100),
+    session: Session = Depends(get_session),
+):
+    """Products with zero or low sales in the last N days."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    receipts = session.exec(
+        select(Receipt).where(
+            Receipt.timestamp >= cutoff,
+            Receipt.payment_status == "COMPLETED",
+            Receipt.is_return == False,  # noqa: E712
+        )
+    ).all()
+
+    sold_qtys: dict[int, int] = {}
+    for r in receipts:
+        items = session.exec(select(SaleItem).where(SaleItem.receipt_id == r.id)).all()
+        for it in items:
+            sold_qtys[it.product_id] = sold_qtys.get(it.product_id, 0) + it.quantity
+
+    all_products = session.exec(select(Product)).all()
+    movers = []
+    for p in all_products:
+        qty = sold_qtys.get(p.id or 0, 0)
+        movers.append({
+            "product_id": p.id,
+            "name": p.name,
+            "stock_quantity": p.stock_quantity,
+            "qty_sold": qty,
+        })
+    movers.sort(key=lambda x: x["qty_sold"])
+    return movers[:limit]
+
+
+@router.get("/hourly-heatmap")
+def hourly_heatmap(
+    start_date: str = Query(..., description="YYYY-MM-DD"),
+    end_date: str = Query(..., description="YYYY-MM-DD"),
+    session: Session = Depends(get_session),
+):
+    """Average revenue by hour of day (0-23) for the date range."""
+    try:
+        start = _parse_date(start_date)
+        end = _parse_date(end_date)
+    except ValueError:
+        start = datetime.now(timezone.utc) - timedelta(days=30)
+        end = datetime.now(timezone.utc)
+    end = end.replace(hour=23, minute=59, second=59)
+
+    receipts = session.exec(
+        select(Receipt).where(
+            Receipt.timestamp >= start,
+            Receipt.timestamp <= end,
+            Receipt.payment_status == "COMPLETED",
+            Receipt.is_return == False,  # noqa: E712
+        )
+    ).all()
+
+    hour_totals: dict[int, float] = {h: 0.0 for h in range(24)}
+    hour_counts: dict[int, int] = {h: 0 for h in range(24)}
+    for r in receipts:
+        h = r.timestamp.hour
+        hour_totals[h] += r.total_amount
+        hour_counts[h] += 1
+
+    return [
+        {
+            "hour": h,
+            "label": f"{h:02d}:00",
+            "total_revenue": round(hour_totals[h], 2),
+            "transaction_count": hour_counts[h],
+            "avg_revenue": round(hour_totals[h] / hour_counts[h], 2) if hour_counts[h] else 0.0,
+        }
+        for h in range(24)
+    ]
+
+
+@router.get("/low-stock")
+def low_stock(session: Session = Depends(get_session)):
+    """All products where stock_quantity <= min_stock_alert."""
+    products = session.exec(select(Product)).all()
+    alerts = [
+        {
+            "product_id": p.id,
+            "name": p.name,
+            "category": p.category,
+            "stock_quantity": p.stock_quantity,
+            "min_stock_alert": p.min_stock_alert,
+        }
+        for p in products
+        if p.stock_quantity <= p.min_stock_alert
+    ]
+    alerts.sort(key=lambda x: x["stock_quantity"])
+    return alerts

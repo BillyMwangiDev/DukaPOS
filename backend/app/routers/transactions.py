@@ -1,7 +1,6 @@
 """Transactions API: persist sale/return on payment complete."""
 import json
 import traceback
-import threading
 import urllib.request
 from datetime import datetime
 from typing import List, Optional
@@ -21,10 +20,9 @@ from pydantic import Field
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
-from app.routers.print_router import _do_print_receipt
-import logging
+from app.routers.print_router import _do_print_receipt  # noqa: E402
+import logging  # noqa: E402
 logger = logging.getLogger("dukapos.transactions")
-
 
 
 class SaleItemPayload(BaseModel):
@@ -59,19 +57,18 @@ class ReceiptCreate(BaseModel):
     bank_confirmation_timestamp: Optional[datetime] = None
 
 
-
 class SaleItemRead(BaseModel):
     id: int
     product_id: int
     quantity: int
     price_at_moment: float
     name: Optional[str] = None
-    
+
     # price and total properties for backward compat
     @property
     def price(self) -> float:
         return self.price_at_moment
-    
+
     @property
     def total(self) -> float:
         return self.quantity * self.price_at_moment
@@ -79,7 +76,7 @@ class SaleItemRead(BaseModel):
     # Pydantic v1 compat
     class Config:
         orm_mode = True
-        from_attributes = True # v2 compat
+        from_attributes = True  # v2 compat
         allow_population_by_field_name = True
 
     # Override dict/model_dump to include properties
@@ -98,6 +95,7 @@ class SaleItemRead(BaseModel):
         d["price"] = self.price_at_moment
         d["total"] = self.quantity * self.price_at_moment
         return d
+
 
 class ReceiptRead(BaseModel):
     id: int
@@ -130,10 +128,10 @@ def list_transactions(
     try:
         from sqlmodel import select
         from sqlalchemy.orm import selectinload
-        
+
         with Session(engine) as session:
             stmt = select(Receipt).options(selectinload(Receipt.items)).order_by(Receipt.timestamp.desc()).offset(skip).limit(limit)
-            
+
             if start_date:
                 try:
                     start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
@@ -147,9 +145,9 @@ def list_transactions(
                     stmt = stmt.where(Receipt.timestamp <= end)
                 except ValueError:
                     pass
-            
+
             results = session.exec(stmt).all()
-            
+
             # Convert to dicts for safe serialization
             output = []
             for r in results:
@@ -169,7 +167,6 @@ def list_transactions(
                     "items": []
                 }
 
-                
                 for it in r.items:
                     product = session.get(Product, it.product_id)
                     it_dict = {
@@ -182,14 +179,13 @@ def list_transactions(
                         "total": it.quantity * it.price_at_moment
                     }
                     r_dict["items"].append(it_dict)
-                
+
                 output.append(r_dict)
-            
+
             return output
     except Exception as e:
         logger.error(f"Error in list_transactions: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
-
 
 
 @router.post("", response_model=ReceiptRead, status_code=201)
@@ -301,13 +297,13 @@ def create_receipt(data: ReceiptCreate, background_tasks: BackgroundTasks):
             logger.info(f"Saved Receipt ID={receipt.id}, Code={receipt.receipt_id}")
 
             if not receipt.id:
-                 logger.error("receipt.id is None after flush/refresh!")
+                logger.error("receipt.id is None after flush/refresh!")
 
             # Collect (product_id, name, new_qty) for WebSocket broadcast after commit
             _stock_updates: list = []
 
             for idx, it in enumerate(data.items):
-                logger.info(f"Adding SaleItem [{idx+1}/{len(data.items)}]: item={it.product_id}, qty={it.quantity}, receipt_id={receipt.id}")
+                logger.info(f"Adding SaleItem [{idx + 1}/{len(data.items)}]: item={it.product_id}, qty={it.quantity}, receipt_id={receipt.id}")
                 # Stock check for forward sales (not returns)
                 product = session.get(Product, it.product_id)
                 if product is not None and not data.is_return:
@@ -333,7 +329,7 @@ def create_receipt(data: ReceiptCreate, background_tasks: BackgroundTasks):
                     product.stock_quantity = (product.stock_quantity or 0) - it.quantity
                     session.add(product)
                     _stock_updates.append((product.id, product.name, product.stock_quantity))
-                logger.info(f"SaleItem [{idx+1}/{len(data.items)}] added and stock adjusted.")
+                logger.info(f"SaleItem [{idx + 1}/{len(data.items)}] added and stock adjusted.")
 
             # Handle account balance for credit payments
             if p_type == "CREDIT":
@@ -378,12 +374,12 @@ def create_receipt(data: ReceiptCreate, background_tasks: BackgroundTasks):
                     EventType.INVENTORY_UPDATED,
                     {"product_id": pid, "product_name": pname, "new_quantity": new_qty},
                 ))
-            
+
             # Eagerly load items to avoid DetachedInstanceError during serialization
             receipt = session.exec(
                 select(Receipt).where(Receipt.id == receipt.id).options(selectinload(Receipt.items))
             ).first()
-            
+
             logger.info(f"Transaction refreshed with items: {receipt.receipt_id}")
 
             kra_url = config("KRA_SUBMISSION_URL", default="").strip()
@@ -422,12 +418,13 @@ def get_receipt_items(receipt_id: int):
         receipt = session.get(Receipt, receipt_id)
         if not receipt:
             raise HTTPException(status_code=404, detail="Receipt not found")
-        
+
         items_db = session.exec(select(SaleItem).where(SaleItem.receipt_id == receipt.id)).all()
         for i in items_db:
             product = session.get(Product, i.product_id)
             i.name = product.name if product else f"Item #{i.product_id}"
         return items_db
+
 
 @router.post("/{receipt_id}/print")
 def print_past_receipt(receipt_id: int):
@@ -440,7 +437,7 @@ def print_past_receipt(receipt_id: int):
         receipt = session.get(Receipt, receipt_id)
         if not receipt:
             raise HTTPException(status_code=404, detail="Receipt not found")
-        
+
         items_db = session.exec(select(SaleItem).where(SaleItem.receipt_id == receipt.id)).all()
         items = []
         for i in items_db:
@@ -452,7 +449,7 @@ def print_past_receipt(receipt_id: int):
         station_id = settings.station_id if settings else "POS-01"
         kra_pin = settings.kra_pin if settings else None
         contact_phone = settings.contact_phone if settings else None
-        
+
         # Use business name from receipt snapshot (not current settings) for accounting accuracy
         shop_name = receipt.business_name if receipt.business_name else "DukaPOS"
 
@@ -461,7 +458,7 @@ def print_past_receipt(receipt_id: int):
         if receipt.payment_type == "SPLIT" and receipt.payment_details_json:
             try:
                 payments_list = json.loads(receipt.payment_details_json)
-            except:
+            except Exception:
                 pass
         else:
             # Single payment: synthesize a payments_list entry to include bank metadata
@@ -475,11 +472,11 @@ def print_past_receipt(receipt_id: int):
                     "confirmed": receipt.bank_confirmed
                 }
             elif receipt.payment_type == "MOBILE":
-                 details = {
+                details = {
                     "subtype": receipt.payment_subtype or "Mobile Money",
                     "code": receipt.reference_code or receipt.mpesa_code
                 }
-            
+
             payments_list = [{
                 "method": receipt.payment_type,
                 "amount": receipt.total_amount,
@@ -536,4 +533,3 @@ def log_price_override(data: PriceOverrideLogCreate):
         session.add(log)
         session.commit()
     return {"ok": True}
-

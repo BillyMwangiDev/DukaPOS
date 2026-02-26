@@ -98,7 +98,6 @@ def get_db():
 @router.get("/categories", response_model=List[str])
 def list_categories(session: Session = Depends(get_db)):
     """Return distinct product categories for filter dropdowns."""
-    from sqlalchemy import distinct
     rows = session.exec(select(Product.category).distinct()).all()
     categories = sorted({r for r in rows if r})
     return categories

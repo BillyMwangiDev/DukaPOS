@@ -9,7 +9,7 @@ from app.config import config
 
 logger = logging.getLogger("dukapos.database")
 
-from app.models import Staff, InvoiceSequence, StoreSettings
+from app.models import Staff, InvoiceSequence, StoreSettings  # noqa: E402
 
 # When run as PyInstaller exe, Electron sets DATABASE_URL to userData/data/pos.db
 if getattr(sys, "frozen", False) and os.environ.get("DATABASE_URL"):
@@ -19,6 +19,7 @@ else:
 connect_args = {} if not DATABASE_URL.startswith("sqlite") else {"check_same_thread": False, "timeout": 30}
 engine = create_engine(DATABASE_URL, connect_args=connect_args, echo=False)
 logger.debug("Using database at %s", DATABASE_URL)
+
 
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -255,14 +256,14 @@ def _migrate_product_discounts() -> None:
         if "product" not in insp.get_table_names():
             return
         cols = [c["name"].lower() for c in insp.get_columns("product")]
-        
+
         updates = [
             ("item_discount_type", "TEXT"),
             ("item_discount_value", "REAL"),
             ("item_discount_start", "DATETIME"),
             ("item_discount_expiry", "DATETIME"),
         ]
-        
+
         for col, col_type in updates:
             if col not in cols:
                 conn.execute(text(f"ALTER TABLE product ADD COLUMN {col} {col_type}"))
@@ -348,7 +349,6 @@ def _migrate_receipt_bank_columns() -> None:
                 except Exception:
                     pass
         conn.commit()
-
 
 
 def _seed_store_settings() -> None:

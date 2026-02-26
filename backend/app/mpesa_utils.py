@@ -22,7 +22,7 @@ from urllib.error import HTTPError, URLError
 # Kenyan M-Pesa numbers after normalisation: 2547XXXXXXXX or 2541XXXXXXXX
 _KENYA_PHONE_RE = re.compile(r"^254[17]\d{8}$")
 
-from app.config import config
+from app.config import config  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

@@ -1,7 +1,6 @@
 """API Keys management router for configuring M-Pesa and other API credentials."""
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from pathlib import Path
 from typing import Optional
 
 from app.config import ENV_FILE
@@ -74,7 +73,7 @@ def get_api_keys():
     consumer_key = env_vars.get("MPESA_CONSUMER_KEY", "")
     consumer_secret = env_vars.get("MPESA_CONSUMER_SECRET", "")
     passkey = env_vars.get("MPESA_PASSKEY", "")
-    
+
     return ApiKeysResponse(
         daraja_base_url=env_vars.get("DARAJA_BASE_URL", "https://sandbox.safaricom.co.ke"),
         consumer_key_masked=_mask_value(consumer_key),
@@ -93,7 +92,7 @@ def update_api_keys(keys: ApiKeysUpdate):
     try:
         # Read current .env file
         env_vars = _read_env_file()
-        
+
         # Update only non-None fields
         if keys.daraja_base_url is not None:
             env_vars["DARAJA_BASE_URL"] = keys.daraja_base_url
@@ -105,10 +104,10 @@ def update_api_keys(keys: ApiKeysUpdate):
             env_vars["MPESA_PASSKEY"] = keys.daraja_passkey
         if keys.daraja_shortcode is not None:
             env_vars["DARAJA_SHORTCODE"] = keys.daraja_shortcode
-        
+
         # Write updated .env file
         _write_env_file(env_vars)
-        
+
         return {"ok": True, "message": "API keys updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update API keys: {str(e)}")

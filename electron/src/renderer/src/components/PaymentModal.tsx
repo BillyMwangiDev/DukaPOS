@@ -601,7 +601,7 @@ export function PaymentModal({
                           id="bank-confirm"
                           checked={bankConfirmed}
                           onChange={e => setBankConfirmed(e.target.checked)}
-                          className="size-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                          className="size-4 rounded border-gray-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500"
                         />
                         <Label htmlFor="bank-confirm" className="text-xs font-medium cursor-pointer text-emerald-600 dark:text-emerald-400">
                           {bankName === "Visa/Card (Manual)"

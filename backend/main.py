@@ -33,9 +33,9 @@ logging.basicConfig(
 logger = logging.getLogger("dukapos")
 logger.info("Backend logging started.")
 
-from app.database import create_db_and_tables
-from app.auth_optional import OptionalAPIKeyMiddleware
-from app.routers import (
+from app.database import create_db_and_tables  # noqa: E402
+from app.auth_optional import OptionalAPIKeyMiddleware  # noqa: E402
+from app.routers import (  # noqa: E402
     products,
     inventory,
     print_router,

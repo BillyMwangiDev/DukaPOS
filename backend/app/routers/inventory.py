@@ -105,6 +105,7 @@ def list_adjustments(
         for r in rows
     ]
 
+
 # Expected column names (case-insensitive, strip); map to Product fields
 COLUMN_ALIASES = {
     "item name": "name",

@@ -16,7 +16,6 @@ import {
   Tags,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AdminSidebarProps {
   currentSection: string;
@@ -63,10 +62,10 @@ export function AdminSidebar({
         isCollapsed ? "w-16" : "w-64"
       )}
     >
-      <div className="p-4 border-b border-slate-700 dark:border-border">
+      <div className="p-4 border-b border-slate-200 dark:border-slate-700">
         {!isCollapsed && (
           <div className="mb-3">
-            <h2 className="font-semibold text-lg text-slate-100 dark:text-foreground">{shopName}</h2>
+            <h2 className="font-semibold text-lg text-slate-800 dark:text-foreground">{shopName}</h2>
             <div className="flex items-center gap-2 mt-1">
               {isOnline ? (
                 <>
@@ -88,7 +87,7 @@ export function AdminSidebar({
           variant="ghost"
           size="sm"
           onClick={onToggleCollapse}
-          className="w-full justify-center text-slate-400 dark:text-muted-foreground dark:hover:text-foreground dark:hover:bg-accent hover:text-slate-200 hover:bg-slate-700"
+          className="w-full justify-center text-slate-600 dark:text-muted-foreground dark:hover:text-foreground dark:hover:bg-accent hover:text-slate-900 hover:bg-slate-100"
         >
           <ChevronLeft
             className={cn("size-4 transition-transform", isCollapsed && "rotate-180")}
@@ -96,7 +95,7 @@ export function AdminSidebar({
         </Button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
         <nav className="p-2 space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
@@ -111,7 +110,7 @@ export function AdminSidebar({
                   isCollapsed && "justify-center px-2",
                   isActive
                     ? "bg-[#43B02A] dark:bg-primary hover:bg-[#3a9824] dark:hover:opacity-90 text-white dark:text-primary-foreground"
-                    : "text-slate-300 dark:text-muted-foreground hover:bg-slate-700 dark:hover:bg-accent hover:text-slate-100 dark:hover:text-foreground"
+                    : "text-slate-700 dark:text-muted-foreground hover:bg-slate-100 dark:hover:bg-accent hover:text-slate-900 dark:hover:text-foreground"
                 )}
                 onClick={() => onSectionChange(item.id)}
               >
@@ -121,7 +120,7 @@ export function AdminSidebar({
             );
           })}
         </nav>
-      </ScrollArea>
+      </div>
     </aside>
   );
 }

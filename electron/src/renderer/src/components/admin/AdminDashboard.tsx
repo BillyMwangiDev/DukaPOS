@@ -122,7 +122,7 @@ export function AdminDashboard({
         userRole={userRole}
       />
 
-      <div className="flex-1 overflow-y-auto pl-6 pr-4 no-scrollbar">
+      <div className="flex-1 overflow-y-auto pl-6 pr-4 custom-scrollbar">
         {currentSection === "dashboard" && (
           <ErrorBoundary>
             <DashboardScreen

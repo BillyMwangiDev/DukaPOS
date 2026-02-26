@@ -247,3 +247,18 @@ def restore_backup(data: RestoreRequest):
         return BackupResponse(ok=True, path=str(zip_path))
     except Exception as e:
         return BackupResponse(ok=False, error=str(e))
+
+
+_DEV_PASSWORD = "DevAccess#POS99"
+
+
+class DevPasswordRequest(BaseModel):
+    password: str
+
+
+@router.post("/verify-dev-password")
+def verify_dev_password(data: DevPasswordRequest):
+    """Verify developer-only password. Not exposed to end clients."""
+    if data.password == _DEV_PASSWORD:
+        return {"ok": True}
+    raise HTTPException(status_code=401, detail="Invalid password")

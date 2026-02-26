@@ -141,7 +141,7 @@ class ESCPOSPrinter:
                 sub = py.get("details", {}).get("subtype")
                 label = f"{meth} ({sub})" if sub else meth
                 p.text(f"  {label}: KSh {amt:.2f}\n")
-                
+
                 # Bank/M-Pesa details
                 det = py.get("details", {})
                 b_name = det.get("bank_name")

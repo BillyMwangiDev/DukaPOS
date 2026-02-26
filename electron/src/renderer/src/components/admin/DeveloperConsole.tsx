@@ -90,16 +90,16 @@ export function DeveloperConsole() {
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(apiUrl("users/verify-admin-pin"), {
+      const res = await fetch(apiUrl("system/verify-dev-password"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin: devPassword }),
+        body: JSON.stringify({ password: devPassword }),
       });
       if (res.ok) {
         setIsDevAuthenticated(true);
         toast.success("Developer Console Unlocked");
       } else {
-        toast.error("Invalid PIN");
+        toast.error("Invalid password");
         setDevPassword("");
       }
     } catch {

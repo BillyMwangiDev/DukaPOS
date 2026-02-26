@@ -11,7 +11,6 @@ from app.models import HeldOrder, Staff
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
-
 class HeldItem(BaseModel):
     product_id: int
     quantity: int
@@ -50,11 +49,11 @@ def hold_order(data: HoldOrderRequest):
         staff = session.get(Staff, data.staff_id)
         if not staff:
             raise HTTPException(status_code=400, detail="Invalid staff_id")
-        
+
         # Serialize list of models to JSON string
         items_data = [item.model_dump() for item in data.items]
         items_json = json.dumps(items_data)
-        
+
         held = HeldOrder(
             staff_id=data.staff_id,
             items_json=items_json,
@@ -123,8 +122,8 @@ def delete_held_order(order_id: int, staff_id: int = Query(1)):
         held = session.get(HeldOrder, order_id)
         # Idempotency: if not found, return 204 (or 404 if preferred, strict API says 404)
         if not held:
-            return None 
-            
+            return None
+
         if held.staff_id != staff_id:
             raise HTTPException(status_code=403, detail="Not your held order")
         session.delete(held)

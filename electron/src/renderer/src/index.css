@@ -76,8 +76,8 @@
     --accent: #334155;
     --destructive: #ef4444;
     --destructive-foreground: #ffffff;
-    --border: rgba(255, 255, 255, 0.08);
-    /* Transparent subtle border */
+    --border: rgba(148, 163, 184, 0.15);
+    /* Slate-tinted dark border — no white feel */
     --input: #1e293b;
     --input-background: #151921;
     --ring: rgba(16, 185, 129, 0.3);
@@ -94,9 +94,15 @@
     --return-bg: #450a0a;
     --return-border: #7f1d1d;
 
-    /* Dark Glass */
-    --glass-bg: rgba(15, 17, 21, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.05);
+    /* Dark Glass — slate border + blur enabled */
+    --glass-bg: rgba(15, 17, 21, 0.82);
+    --glass-border: rgba(148, 163, 184, 0.08);
+    --glass-blur: 14px;
+
+    /* Richer shadow depth for dark surfaces */
+    --ag-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.35);
+    --ag-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25);
+    --ag-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.35);
   }
 }
 
@@ -127,6 +133,36 @@ input:not([type="hidden"]),
 
 .font-mono {
   font-family: ui-monospace, monospace;
+}
+
+/* Premium dark look for ALL standard Card components (pos-card added to ui/card.tsx).
+   Declared before .dark .glass so glass cards win when both classes apply. */
+.dark .pos-card {
+  border-color: rgba(148, 163, 184, 0.1);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Premium Dark Mode — override all border-white/5 and border-white/10 on glass elements.
+   .dark .glass (specificity 20) beats single-class border-white utilities (specificity 10). */
+.dark .glass {
+  border-color: rgba(148, 163, 184, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Richer ag-card elevation in dark mode */
+.dark .ag-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  border-color: rgba(148, 163, 184, 0.1);
+}
+
+.dark .ag-card:hover {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+
+/* Emerald text selection in dark mode */
+.dark ::selection {
+  background: rgba(16, 185, 129, 0.25);
+  color: #eef2f6;
 }
 
 /* Dark theme: scrollbars - thin, rounded, slate */
@@ -228,6 +264,10 @@ input:not([type="hidden"]),
 }
 
 /* Custom Scrollbar for Antigravity Look */
+.custom-scrollbar {
+  scrollbar-width: thin;
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }

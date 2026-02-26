@@ -39,8 +39,8 @@ function DialogContent({
   return (
     <div
       className={cn(
-        "bg-white dark:bg-[#334155] text-foreground shadow-2xl rounded-lg border border-border p-6 max-w-md w-full mx-4",
-        "ring-2 ring-black/5 dark:ring-white/5",
+        "bg-card text-foreground shadow-2xl rounded-lg border border-border p-6 max-w-md w-full mx-4",
+        "ring-1 ring-black/5 dark:ring-white/[0.03]",
         "min-h-[200px]",
         className
       )}

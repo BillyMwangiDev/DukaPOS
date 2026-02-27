@@ -237,6 +237,26 @@ export function InventoryManagerScreen({ readOnly = false }: InventoryManagerScr
   const marginPct = (buy: number, sell: number) =>
     buy > 0 ? (((sell - buy) / buy) * 100).toFixed(1) : "0";
 
+  /** Fetch a file from the backend and trigger the native Save-As dialog
+   *  without opening a new window. */
+  const downloadFile = async (url: string, filename: string) => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Download failed (${res.status})`);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      toast.error("Download failed", { description: String(err instanceof Error ? err.message : err) });
+    }
+  };
+
   return (
     <div className="p-6 space-y-6 animate-in">
       <div className="flex items-center justify-between">
@@ -287,17 +307,14 @@ export function InventoryManagerScreen({ readOnly = false }: InventoryManagerScr
             />
             <Button
               variant="outline"
-              onClick={() => {
-                const url = apiUrl("reports/inventory/export/xlsx");
-                window.open(url, "_blank");
-              }}
+              onClick={() => downloadFile(apiUrl("reports/inventory/export/xlsx"), "inventory_export.xlsx")}
             >
               <Upload className="mr-2 size-4 rotate-180" />
               Export Excel
             </Button>
             <Button
               variant="outline"
-              onClick={() => window.open(apiUrl("inventory/template"), "_blank")}
+              onClick={() => downloadFile(apiUrl("inventory/template"), "inventory_import_template.xlsx")}
             >
               <FileDown className="mr-2 size-4" />
               Download Template

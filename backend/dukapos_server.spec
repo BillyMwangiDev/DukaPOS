@@ -57,6 +57,7 @@ a = Analysis(
         'multipart',
         'multipart.multipart',
         'pandas',
+        'pandas.io.excel._openpyxl',
         'openpyxl',
     ],
     hookspath=[],

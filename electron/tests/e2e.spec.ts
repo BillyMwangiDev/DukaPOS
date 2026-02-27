@@ -12,10 +12,15 @@ test.describe('DukaPOS Smoke Tests', () => {
   let window: any;
 
   test.beforeAll(async () => {
+    const launchEnv = { ...process.env, E2E_TEST: 'true' };
+    // ELECTRON_RUN_AS_NODE disables Electron's built-in module registry,
+    // causing require('electron') to return the npm path string instead of
+    // the Electron APIs. Must be unset before launching.
+    delete launchEnv.ELECTRON_RUN_AS_NODE;
     electronApp = await electron.launch({
       executablePath: ELECTRON_PATH,
       args: [PROJECT_ROOT],
-      env: { ...process.env, E2E_TEST: 'true' }
+      env: launchEnv
     });
     window = await electronApp.firstWindow();
 

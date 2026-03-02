@@ -37,14 +37,21 @@ def download_template():
 
     columns = [
         ("Item Name *", 28, "Full product name, e.g. Brookside Milk 500ml"),
-        ("Barcode *", 18, "Unique barcode / SKU (digits or text)"),
+        ("Barcode *", 18, "Unique barcode / SKU — format column as Text to avoid losing leading zeros"),
         ("Selling Price *", 16, "VAT-inclusive retail price in KSh"),
         ("Buying Price", 16, "Your cost / buying price in KSh (optional)"),
         ("Current Stock", 15, "Units in stock right now (default: 0)"),
         ("Low Stock Limit", 16, "Alert when stock falls below this (default: 5)"),
         ("Wholesale Price", 16, "Bulk price if different from retail (optional)"),
         ("Wholesale Threshold", 20, "Min qty to qualify for wholesale price"),
+        ("Category", 18, "Product category, e.g. Dairy, Beverages (default: General)"),
     ]
+    # Column B (barcode) = column index 2 — force Text format so Excel doesn't
+    # auto-convert numeric barcodes to floats (which can lose precision on 13-14 digit EANs).
+    barcode_col_letter = get_column_letter(2)
+    for row in range(2, 202):  # header row through 200 blank data rows
+        ws[f"{barcode_col_letter}{row}"].number_format = "@"
+
     # Row 1: title banner
     ws.merge_cells(f"A1:{get_column_letter(len(columns))}1")
     tc = ws["A1"]
@@ -74,25 +81,25 @@ def download_template():
         c.border = cb
     ws.row_dimensions[3].height = 20
 
-    # Sample rows
+    # Sample rows  (name, barcode, sell, buy, stock, min_s, wp, wt, category)
     samples = [
-        ("Brookside Milk 500ml", "6001059039614", 60.0, 48.0, 24, 5, None, None),
-        ("Unga Dola 2kg", "6001000105001", 165.0, 130.0, 50, 10, 155.0, 10),
-        ("Royco Mchuzi Mix 75g", "5900617024152", 45.0, 36.0, 100, 20, 40.0, 20),
-        ("Indomie Noodles Chicken 70g", "8996001300406", 25.0, 18.0, 200, 30, 22.0, 50),
-        ("Ketepa Pride Tea Bags 25s", "6001000501024", 85.0, 65.0, 60, 12, 80.0, 10),
-        ("Jogoo Maize Flour 2kg", "6001000301001", 155.0, 120.0, 75, 10, 148.0, 10),
-        ("Kimbo Cooking Fat 500g", "6001000601001", 175.0, 140.0, 35, 8, 168.0, 5),
-        ("Nescafe Classic 50g", "7613036961752", 420.0, 330.0, 20, 4, None, None),
-        ("Simba Chips Salt & Vinegar 36g", "6001106001243", 40.0, 30.0, 150, 24, 35.0, 36),
-        ("Softcare Baby Wipes 80s", "6009174200103", 220.0, 175.0, 25, 5, 210.0, 5),
+        ("Brookside Milk 500ml", "6001059039614", 60.0, 48.0, 24, 5, None, None, "Dairy"),
+        ("Unga Dola 2kg", "6001000105001", 165.0, 130.0, 50, 10, 155.0, 10, "Grains & Flour"),
+        ("Royco Mchuzi Mix 75g", "5900617024152", 45.0, 36.0, 100, 20, 40.0, 20, "Spices & Condiments"),
+        ("Indomie Noodles Chicken 70g", "8996001300406", 25.0, 18.0, 200, 30, 22.0, 50, "Snacks & Noodles"),
+        ("Ketepa Pride Tea Bags 25s", "6001000501024", 85.0, 65.0, 60, 12, 80.0, 10, "Beverages"),
+        ("Jogoo Maize Flour 2kg", "6001000301001", 155.0, 120.0, 75, 10, 148.0, 10, "Grains & Flour"),
+        ("Kimbo Cooking Fat 500g", "6001000601001", 175.0, 140.0, 35, 8, 168.0, 5, "Cooking Oils & Fats"),
+        ("Nescafe Classic 50g", "7613036961752", 420.0, 330.0, 20, 4, None, None, "Beverages"),
+        ("Simba Chips Salt & Vinegar 36g", "6001106001243", 40.0, 30.0, 150, 24, 35.0, 36, "Snacks & Noodles"),
+        ("Softcare Baby Wipes 80s", "6009174200103", 220.0, 175.0, 25, 5, 210.0, 5, "Baby & Personal Care"),
     ]
     price_fmt = "#,##0.00"
 
-    for ri, (name, barcode, sell, buy, stock, min_s, wp, wt) in enumerate(samples, 4):
+    for ri, (name, barcode, sell, buy, stock, min_s, wp, wt, category) in enumerate(samples, 4):
         rf = PatternFill("solid", fgColor=ODD_ROW if ri % 2 == 1 else EVEN_ROW)
-        data = [name, barcode, sell, buy, stock, min_s, wp, wt]
-        fmts = [None, None, price_fmt, price_fmt, "0", "0", price_fmt, "0"]
+        data = [name, barcode, sell, buy, stock, min_s, wp, wt, category]
+        fmts = [None, "@", price_fmt, price_fmt, "0", "0", price_fmt, "0", None]
         for ci, (val, fmt) in enumerate(zip(data, fmts), 1):
             c = ws.cell(row=ri, column=ci, value=val)
             c.fill = rf
@@ -233,6 +240,9 @@ COLUMN_ALIASES = {
     "wholesale threshold": "wholesale_threshold",
     "wholesalethreshold": "wholesale_threshold",
     "wholesale_threshold": "wholesale_threshold",
+    "category": "category",
+    "product category": "category",
+    "product_category": "category",
 }
 
 
@@ -282,6 +292,7 @@ _HEADER_KEYWORDS: set[str] = {
     "barcode", "barcode *", "code", "sku",
     "selling price", "selling price *", "price", "price_selling",
     "buying price", "buying price *", "cost",
+    "category", "product category",
 }
 
 
@@ -330,12 +341,13 @@ def _read_upload(file: UploadFile) -> tuple[pd.DataFrame, int]:
         return df, 2  # row 1 = header, row 2 = first data row
 
     # ── XLSX: scan every row to locate the real header row ───────────────────
-    df_all = pd.read_excel(io.BytesIO(raw), header=None)
+    # engine="openpyxl" is explicit — newer pandas removed xlrd support for .xlsx.
+    df_all = pd.read_excel(io.BytesIO(raw), header=None, engine="openpyxl")
     header_row_idx = _find_header_row(df_all)
 
     if header_row_idx is None:
         # No recognisable header found — attempt plain read (column check will fail gracefully).
-        df = pd.read_excel(io.BytesIO(raw), converters=converters)
+        df = pd.read_excel(io.BytesIO(raw), converters=converters, engine="openpyxl")
         return df, 2
 
     # Rows before the header are title banners / metadata — skip them.
@@ -357,6 +369,7 @@ def _read_upload(file: UploadFile) -> tuple[pd.DataFrame, int]:
     data_start_row = header_row_idx + 2 + (1 if hint_skipped else 0)
 
     read_kwargs: dict = {
+        "engine": "openpyxl",
         "converters": converters,
         "na_values": ["", "N/A", "n/a", "None", "-"],
         "keep_default_na": True,
@@ -531,6 +544,13 @@ def upload_inventory(file: UploadFile = File(...)):
                     except (TypeError, ValueError):
                         pass
 
+                _cat = row.get("category")
+                category: str = "General"
+                if _cat is not None and not (isinstance(_cat, float) and pd.isna(_cat)):
+                    cat_str = str(_cat).strip()
+                    if cat_str:
+                        category = cat_str
+
                 existing = session.exec(
                     select(Product).where(Product.barcode == barcode)
                 ).first()
@@ -542,12 +562,14 @@ def upload_inventory(file: UploadFile = File(...)):
                     existing.min_stock_alert = min_stock_alert
                     existing.wholesale_price = wholesale_price
                     existing.wholesale_threshold = wholesale_threshold
+                    existing.category = category
                     session.add(existing)
                     updated += 1
                 else:
                     product = Product(
                         name=name,
                         barcode=barcode,
+                        category=category,
                         price_buying=price_buying,
                         price_selling=price_selling,
                         stock_quantity=stock_quantity,

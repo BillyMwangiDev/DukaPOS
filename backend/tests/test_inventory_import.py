@@ -26,10 +26,10 @@ def _make_template_xlsx(rows: list[list]) -> bytes:
     ws.append([
         "Item Name *", "Barcode *", "Selling Price *",
         "Buying Price", "Current Stock", "Low Stock Limit",
-        "Wholesale Price", "Wholesale Threshold",
+        "Wholesale Price", "Wholesale Threshold", "Category",
     ])
     ws.append(["hint-name", "hint-bc", "hint-sell", "hint-buy",
-               "hint-stk", "hint-min", "hint-wp", "hint-wt"])
+               "hint-stk", "hint-min", "hint-wp", "hint-wt", "hint-cat"])
     for r in rows:
         ws.append(r)
     buf = io.BytesIO()
@@ -85,11 +85,12 @@ def test_template_download(client: TestClient):
     # Must be a valid xlsx (openpyxl can open it)
     wb = openpyxl.load_workbook(io.BytesIO(r.content))
     ws = wb.active
-    # Row 2 must contain the column headers
-    headers = [str(ws.cell(2, c).value or "").strip() for c in range(1, 9)]
+    # Row 2 must contain the column headers (9 columns now)
+    headers = [str(ws.cell(2, c).value or "").strip() for c in range(1, 10)]
     assert "Item Name *" in headers
     assert "Barcode *" in headers
     assert "Selling Price *" in headers
+    assert "Category" in headers
 
 
 def test_upload_downloaded_template_unchanged(client: TestClient):
@@ -110,8 +111,8 @@ def test_upload_downloaded_template_unchanged(client: TestClient):
 def test_upload_template_format_custom_rows(client: TestClient):
     """Template-format xlsx with our own product rows imports correctly."""
     xlsx = _make_template_xlsx([
-        ["Widget Alpha", "IMP-001", 100.0, 70.0, 50, 5, None, None],
-        ["Widget Beta",  "IMP-002", 250.0, 180.0, 30, 3, 230.0, 12],
+        ["Widget Alpha", "IMP-001", 100.0, 70.0, 50, 5, None, None, "Electronics"],
+        ["Widget Beta",  "IMP-002", 250.0, 180.0, 30, 3, 230.0, 12, "General"],
     ])
     r = client.post(
         "/inventory/upload",
@@ -139,13 +140,13 @@ def test_upload_template_format_custom_rows(client: TestClient):
 
 def test_upload_template_update_existing(client: TestClient):
     """Re-importing an existing barcode updates the product, does not duplicate."""
-    xlsx1 = _make_template_xlsx([["Widget Gamma", "IMP-003", 100.0, 70.0, 20, 5, None, None]])
+    xlsx1 = _make_template_xlsx([["Widget Gamma", "IMP-003", 100.0, 70.0, 20, 5, None, None, "Clothing"]])
     r1 = client.post("/inventory/upload",
         files={"file": ("c1.xlsx", io.BytesIO(xlsx1),
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
     assert r1.json()["created"] == 1
 
-    xlsx2 = _make_template_xlsx([["Widget Gamma UPDATED", "IMP-003", 150.0, 90.0, 99, 5, None, None]])
+    xlsx2 = _make_template_xlsx([["Widget Gamma UPDATED", "IMP-003", 150.0, 90.0, 99, 5, None, None, "Clothing"]])
     r2 = client.post("/inventory/upload",
         files={"file": ("c2.xlsx", io.BytesIO(xlsx2),
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
